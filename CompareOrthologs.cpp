@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <stdlib.h>
+#include <utility>
 
 using namespace std;
 
@@ -18,38 +19,43 @@ int findBestMatch(ifstream& blast, vector<int> matchPositions,vector<string> que
 
 double getPercentIdentity(string line);
 
-void outputResults( vector<int> matchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile);
+void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile);
 
 bool checkForMovement(vector<int> matchPositions, int index);
 
 bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySize);
 
+void outputMutualResults(vector<int> forwardMatchPositions, vector<int> reverseMatchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile);
+
+bool isConserved(vector<int> matchPositions, int index, int maxQuerySize);
+
 const int PROTEIN_POS_CUTOFF = 200; //the difference from original protein position that can be considered a large move
 const int CHECK_RANGE = 5; //number of upstream and downstream proteins to check for differences
-const int RANGE_CUTOFF = 30; //divergence from the checked protein that can still be considered a nearby protein
+const int RANGE_CUTOFF = 5; //divergence from the checked protein that can still be considered a nearby protein
 
 const double NEARBY_PROTEIN_CUTOFF = 0.4; //cutoff for fraction of different nearby proteins for a protein that hasn't moved //lower = more conservative
-const double PERCENT_IDENTITY_CUTOFF = 30.0; //lowest acceptable percent identity for matches
+const double PERCENT_IDENTITY_CUTOFF = 50.0; //lowest acceptable percent identity for matches
 const int NO_PROTEIN = -1; //indicates no protein match in vectors of match positions
 
 
 int main(int argc, char *argv[]){
-	if (argc != 7){
+	if (argc != 8){
 		cout << "missing/too many arguments! Provide:  query fasta, subject fasta, forward blast results, reverse blast results, and output file name"<< endl;
 		return 0;
 	}
 	
 	//builds vectors of proteins for query and subject fasta
 	ifstream queryFasta, subjectFasta, forwardBlast, reverseBlast;
-	ofstream outputFile1, outputFile2;
+	ofstream outputFile1, outputFile2, mutualMatchesOut;
 	queryFasta.open(argv[1]);
 	subjectFasta.open(argv[2]);
 	forwardBlast.open(argv[3]);
 	reverseBlast.open(argv[4]);
 	outputFile1.open(argv[5]);
 	outputFile2.open(argv[6]);
-	if(!queryFasta.is_open() || !subjectFasta.is_open() || !forwardBlast.is_open() || !reverseBlast.is_open() || !outputFile1.is_open() || !outputFile2.is_open()){
-		cout << "ERROR:failed to open one of the files" << endl;
+	mutualMatchesOut.open(argv[7]);
+	if(!queryFasta.is_open() || !subjectFasta.is_open() || !forwardBlast.is_open() || !reverseBlast.is_open() || !outputFile1.is_open() || !outputFile2.is_open() || !mutualMatchesOut.is_open()){
+		cout << "C++ERROR:failed to open one of the files" << endl;
 		return 0;
 	}
 	
@@ -62,8 +68,12 @@ int main(int argc, char *argv[]){
 	vector<int> reverseMatchPositions = getMatchPositions(reverseBlast, queryFastaProteins, subjectFastaProteins);
 	
 	//checks for movement and outputs results
-	outputResults(forwardMatchPositions, subjectFastaProteins, queryFastaProteins, outputFile1);
-	outputResults(reverseMatchPositions, queryFastaProteins, subjectFastaProteins, outputFile2);	
+	outputAllResults(forwardMatchPositions, subjectFastaProteins, queryFastaProteins, outputFile1);
+	outputAllResults(reverseMatchPositions, queryFastaProteins, subjectFastaProteins, outputFile2);
+	
+	//outputs the proteins that were found to move based on absolute position and adjacent proteins
+	//only outputs the proteins that were found in both directions of the blast
+	outputMutualResults(forwardMatchPositions, reverseMatchPositions, subjectFastaProteins, queryFastaProteins, mutualMatchesOut);	
 
 
 	return 0;
@@ -184,20 +194,63 @@ double getPercentIdentity(string line){
 }
 
 //writes important information to a file comma-delimited
-void outputResults( vector<int> matchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile){
-	outputFile << "Subject.Protein" <<","<<"Query.Protein" <<","<< "Movement.Distance" <<","<<"Movement.Adjacent" << endl;
+void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile){
+	outputFile << "Subject.Protein,"<<"Query.Protein,"<< "Movement.Distance,"<<"Movement.Adjacent," <<"Adjacent.Conserved"<<endl;
 	for (int x = 0; x < matchPositions.size(); x++){
 
 		if (matchPositions[x] >= 0){
-			//outputFile << subjectFasta[x] << "\t";
+			//outputFile << subjectFasta[x] << ",";
 			outputFile << x << ",";
-			//outputFile << queryFasta[matchPositions[x]] << "\t";
+			//outputFile << queryFasta[matchPositions[x]] << ",";
 			outputFile << matchPositions[x] << ",";
 			outputFile << checkForMovement(matchPositions, x) << ",";
-			outputFile << checkAdjacentProteins(matchPositions,x, queryFasta.size());
+			outputFile << checkAdjacentProteins(matchPositions,x, queryFasta.size()) << ",";
+			outputFile << isConserved(matchPositions,x, queryFasta.size());
+			outputFile << endl;
 		}
-		outputFile << endl;
+		
 	}
+}
+
+void outputMutualResults(vector<int> forwardMatchPositions, vector<int> reverseMatchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile){
+	vector<pair<string, string> > forwardMoved, reverseMoved;
+	pair<string, string> temp;
+	bool movedAbsolute, movedAdjacent, adjacentConserved;
+	//populates a vector of pairs with proteins that have moved based on both absolute position and adjacent proteins
+	//only ands proteins that have left a conserved region
+	for (int x = 0; x < forwardMatchPositions.size(); x++){
+		movedAbsolute = checkForMovement(forwardMatchPositions, x);
+		movedAdjacent = checkAdjacentProteins(forwardMatchPositions, x, queryFasta.size());
+		adjacentConserved = isConserved(forwardMatchPositions, x, queryFasta.size());
+		if ((forwardMatchPositions[x] >= 0) && (movedAbsolute) && (movedAdjacent) && (adjacentConserved)){
+			temp.first = subjectFasta[x];
+			temp.second = queryFasta[forwardMatchPositions[x]];
+			forwardMoved.push_back(temp);
+		}
+	}
+	//populates a vector of pairs with proteins that have moved based on both absolute position and adjacent proteins
+	//only add proteins that have left a conserved region
+	for (int y = 0; y < reverseMatchPositions.size(); y++){
+		movedAbsolute = checkForMovement(reverseMatchPositions, y);
+		movedAdjacent = checkAdjacentProteins(reverseMatchPositions, y, subjectFasta.size());
+		adjacentConserved = isConserved(reverseMatchPositions, y, subjectFasta.size());
+		if ((reverseMatchPositions[y] >= 0) && (movedAbsolute) && (movedAdjacent) && (adjacentConserved)){
+			temp.first = queryFasta[y];
+			temp.second = subjectFasta[reverseMatchPositions[y]];
+			reverseMoved.push_back(temp);
+		}
+	}
+	
+	outputFile << "Subject.Protein" <<","<<"Query.Protein" <<endl;
+	//compares the results in both directions and outputs the mutual results to a file
+	for (int i = 0; i < forwardMoved.size(); i++){
+		for (int j = 0; j < reverseMoved.size(); j++){
+			if ((forwardMoved[i].first == reverseMoved[j].second) && (forwardMoved[i].second == reverseMoved[j].first)){
+				outputFile << forwardMoved[i].first << "," << forwardMoved[i].second << endl;
+			}
+		}
+	}
+	
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -277,6 +330,57 @@ bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySi
 	}else{
 		return false; //did not move
 	}
+}
+
+bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
+	int minVal, maxVal;
+	double count = 0; //counts proteins that stayed within range
+	double totalChecked = (CHECK_RANGE*2);
+	vector<int> matchesToCheck;
+	
+	minVal = matchPositions[index] - RANGE_CUTOFF;
+	if (minVal < 1){
+		minVal = ((maxQuerySize+matchPositions[index]) - RANGE_CUTOFF);
+	}
+	
+	maxVal = matchPositions[index] + RANGE_CUTOFF;
+	if (maxVal > maxQuerySize){
+		maxVal = ((matchPositions[index] + RANGE_CUTOFF) - (maxQuerySize));
+	}
+	
+	//checks sections of the matchPositions values for a conserved region that is close to the protein at the index given 
+	int x=0, y=0, z=0;
+	while(x < matchPositions.size()){
+		if(matchPositions[x] >=0){
+			y = x;
+			count = 0;
+			z = 0;
+			while(z < totalChecked){
+				if (y >= matchPositions.size()){ //wraps around to the beginning of genome
+					y = 0;
+				}
+				
+				if (matchPositions[y] >=0){ //skips over -1 values
+					if (minVal < maxVal){
+						if (matchPositions[y] >= minVal && matchPositions[y] <= maxVal){
+							count+=1;
+						}
+					} else{
+						if (matchPositions[y] >= minVal || matchPositions[y] <= maxVal){
+							count+=1;
+						}
+					}
+					z++; //counts number of downstream values checked
+				}
+				y++; //moves to the next value
+			}
+			if ((count/totalChecked) > 1.0-NEARBY_PROTEIN_CUTOFF){
+				return true;
+			}
+		}
+		x++;
+	}
+	return false;
 }
 
 
