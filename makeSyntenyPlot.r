@@ -65,15 +65,21 @@ get.Moved.Without.Adjacent.Conserved <- function(syntenyData){
 
 conserved <- get.Moved.Without.Adjacent.Conserved(syntenyData)
 
-completePlot <- xyplot(Subject.Protein ~ Query.Protein, data = syntenyData, col = "black")
-
+completePlot <- xyplot(Subject.Protein ~ Query.Protein, data = syntenyData, col = "black", xlim=c(0,max(syntenyData$Query.Protein)),ylim=c(0,max(syntenyData$Subject.Protein)) ,  grid=TRUE)
+#completePlot <- xyplot(Subject.Protein ~ Query.Protein, data = syntenyData, col = "black", grid=TRUE)
 withPlot <- xyplot(subject ~ query, data = movedWithAdjacent, col = "blue")
 
 withoutPlot <- xyplot(subject ~ query, data = movedWithoutAdjacent,col = "red")
 
-conservedPlot <- xyplot(subject ~ query, data = conserved,col = "green")
+if (length(conserved$subject) > 0){
+  conservedPlot <- xyplot(subject ~ query, data = conserved,col = "green")
+}
 
-combinedplots <-completePlot+withPlot+withoutPlot+conservedPlot
+if (exists("conservedPlot")){
+  combinedplots <-completePlot+withPlot+withoutPlot+conservedPlot
+}else{
+ combinedplots <- completePlot+withPlot+withoutPlot
+}
 
 pdf(args[3])
 combinedplots

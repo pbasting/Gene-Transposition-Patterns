@@ -74,7 +74,7 @@ int main(int argc, char *argv[]){
 	//outputs the proteins that were found to move based on absolute position and adjacent proteins
 	//only outputs the proteins that were found in both directions of the blast
 	outputMutualResults(forwardMatchPositions, reverseMatchPositions, subjectFastaProteins, queryFastaProteins, mutualMatchesOut);	
-
+	
 
 	return 0;
 }
@@ -224,10 +224,13 @@ void outputMutualResults(vector<int> forwardMatchPositions, vector<int> reverseM
 		adjacentConserved = isConserved(forwardMatchPositions, x, queryFasta.size());
 		if ((forwardMatchPositions[x] >= 0) && (movedAbsolute) && (movedAdjacent) && (adjacentConserved)){
 			temp.first = subjectFasta[x];
+			cout << subjectFasta[x] << "\t";
 			temp.second = queryFasta[forwardMatchPositions[x]];
+			cout << queryFasta[forwardMatchPositions[x]] << endl;
 			forwardMoved.push_back(temp);
 		}
 	}
+	cout << "///////////REVERSE////////////////" <<endl;
 	//populates a vector of pairs with proteins that have moved based on both absolute position and adjacent proteins
 	//only add proteins that have left a conserved region
 	for (int y = 0; y < reverseMatchPositions.size(); y++){
@@ -236,7 +239,9 @@ void outputMutualResults(vector<int> forwardMatchPositions, vector<int> reverseM
 		adjacentConserved = isConserved(reverseMatchPositions, y, subjectFasta.size());
 		if ((reverseMatchPositions[y] >= 0) && (movedAbsolute) && (movedAdjacent) && (adjacentConserved)){
 			temp.first = queryFasta[y];
+			cout << queryFasta[y] << "\t";
 			temp.second = subjectFasta[reverseMatchPositions[y]];
+			cout << subjectFasta[reverseMatchPositions[y]] << endl;
 			reverseMoved.push_back(temp);
 		}
 	}

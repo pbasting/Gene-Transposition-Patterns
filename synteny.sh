@@ -5,9 +5,9 @@ g++ CompareOrthologs.cpp -o CompareOrthologs
 sequence1=$1
 sequence2=$2
 
-db_path="/home/preston/Documents/blastp_project/databases/"
-results_path="/home/preston/Documents/blastp_project/blast_results/"
-synteny_path="/home/preston/Documents/blastp_project/synteny_results/"
+db_path="databases/"
+results_path="blast_results/"
+synteny_path="synteny_results/"
 
 
 seq1Name=${sequence1%.*} #removes file extension
