@@ -34,11 +34,17 @@ blast_results_dir=${results_path}${seq1Name}"_and_"${seq2Name} #location for sto
 blast_results_1=${blast_results_dir}"/subject_"${seq2Name}"_query_"${seq1Name}".txt"
 blast_results_2=${blast_results_dir}"/subject_"${seq1Name}"_query_"${seq2Name}".txt"
 
+###############################################
+#run these at the same time to speed things up#
+###############################################
 if [ ! -d "$blast_results_dir" ]; then
 	mkdir $blast_results_dir
 	#runs blast both directions
-	./runBlastp.sh $sequence1 $db_2 $blast_results_1
-	./runBlastp.sh $sequence2 $db_1 $blast_results_2
+	./runBlastp.sh $sequence1 $db_2 $blast_results_1 &
+	P1=$!
+	./runBlastp.sh $sequence2 $db_1 $blast_results_2 &
+	P2=$!
+	wait $P1 $P2
 fi
 	
 
@@ -60,7 +66,7 @@ Rscript makeSyntenyPlot.r ${synteny_dir}"/" "subject_"${seq2Name}"_query_"${seq1
 Rscript makeSyntenyPlot.r ${synteny_dir}"/" "subject_"${seq1Name}"_query_"${seq2Name}"_MovementResults.csv" "subject_"${seq1Name}"_query_"${seq2Name}"_syntenyMap.pdf"
 
 #opens the first chart
-evince ${synteny_dir}"/subject_"${seq2Name}"_query_"${seq1Name}"_syntenyMap.pdf"
+#evince ${synteny_dir}"/subject_"${seq2Name}"_query_"${seq1Name}"_syntenyMap.pdf"
 	
 
 
