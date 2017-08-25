@@ -34,9 +34,7 @@ blast_results_dir=${results_path}${seq1Name}"_and_"${seq2Name} #location for sto
 blast_results_1=${blast_results_dir}"/subject_"${seq2Name}"_query_"${seq1Name}".txt"
 blast_results_2=${blast_results_dir}"/subject_"${seq1Name}"_query_"${seq2Name}".txt"
 
-###############################################
-#run these at the same time to speed things up#
-###############################################
+
 if [ ! -d "$blast_results_dir" ]; then
 	mkdir $blast_results_dir
 	#runs blast both directions
@@ -67,6 +65,8 @@ Rscript makeSyntenyPlot.r ${synteny_dir}"/" "subject_"${seq1Name}"_query_"${seq2
 
 #opens the first chart
 #evince ${synteny_dir}"/subject_"${seq2Name}"_query_"${seq1Name}"_syntenyMap.pdf"
+
+#call program that parses genbank and .keg, and converts CompareOrtholog results to keg categories
 	
 
 

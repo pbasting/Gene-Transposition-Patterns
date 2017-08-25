@@ -6,8 +6,8 @@ genus=$1
 g=${genus:0:1}
 
 #runs the synteny script with every pair of fastas for a genus
-for file1 in fastas/${genus}/${g}_*.fasta; do
-	for file2 in fastas/${genus}/${g}_*.fasta; do
+for file1 in fastas/${genus}/*/${g}_*.fasta; do
+	for file2 in fastas/${genus}/*/${g}_*.fasta; do
 	file1Name=${file1%.*} #removes file extension
 	file1Name=${file1Name##*/} #removes path to file
 	file2Name=${file2%.*}
