@@ -41,7 +41,7 @@ const int NO_PROTEIN = -1; //indicates no protein match in vectors of match posi
 
 
 int main(int argc, char *argv[]){
-	if (argc != 8){
+	if (argc != 7){
 		cout << "missing/too many arguments! Provide:  query fasta, subject fasta, forward blast results, reverse blast results, and output file name"<< endl;
 		return 0;
 	}
@@ -55,8 +55,8 @@ int main(int argc, char *argv[]){
 	reverseBlast.open(argv[4]);
 	outputFile1.open(argv[5]);
 	outputFile2.open(argv[6]);
-	mutualMatchesOut.open(argv[7]);
-	if(!queryFasta.is_open() || !subjectFasta.is_open() || !forwardBlast.is_open() || !reverseBlast.is_open() || !outputFile1.is_open() || !outputFile2.is_open() || !mutualMatchesOut.is_open()){
+	//mutualMatchesOut.open(argv[7]);
+	if(!queryFasta.is_open() || !subjectFasta.is_open() || !forwardBlast.is_open() || !reverseBlast.is_open() || !outputFile1.is_open() || !outputFile2.is_open()){
 		cout << "C++ERROR:failed to open one of the files" << endl;
 		return 0;
 	}
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]){
 	//only outputs the proteins that were found in both directions of the blast
 	string subjectName = getFileName(argv[2]);
 	string queryName = getFileName(argv[1]);
-	outputMutualResults(forwardMatchPositions, reverseMatchPositions, subjectFastaProteins, queryFastaProteins, mutualMatchesOut, subjectName, queryName);	
+	//outputMutualResults(forwardMatchPositions, reverseMatchPositions, subjectFastaProteins, queryFastaProteins, mutualMatchesOut, subjectName, queryName);	
 
 	return 0;
 }

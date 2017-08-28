@@ -1,9 +1,12 @@
 #!/bin/sh
 
 g++ CompareOrthologs.cpp -o CompareOrthologs
+g++ getKegResults.cpp -o getKegResults
 
 sequence1=$1
 sequence2=$2
+genbank=$3
+keg=$4
 
 db_path="databases/"
 results_path="blast_results/"
@@ -56,8 +59,7 @@ mkdir ${synteny_dir}
  $blast_results_1\
  $blast_results_2\
  ${synteny_dir}"/subject_"${seq2Name}"_query_"${seq1Name}"_MovementResults.csv"\
- ${synteny_dir}"/subject_"${seq1Name}"_query_"${seq2Name}"_MovementResults.csv"\
- ${synteny_dir}"/MutualMovedProteins.csv" 
+ ${synteny_dir}"/subject_"${seq1Name}"_query_"${seq2Name}"_MovementResults.csv"
  
 #makes the synteny charts both directions
 Rscript makeSyntenyPlot.r ${synteny_dir}"/" "subject_"${seq2Name}"_query_"${seq1Name}"_MovementResults.csv" "subject_"${seq2Name}"_query_"${seq1Name}"_syntenyMap.pdf"
@@ -67,6 +69,14 @@ Rscript makeSyntenyPlot.r ${synteny_dir}"/" "subject_"${seq1Name}"_query_"${seq2
 #evince ${synteny_dir}"/subject_"${seq2Name}"_query_"${seq1Name}"_syntenyMap.pdf"
 
 #call program that parses genbank and .keg, and converts CompareOrtholog results to keg categories
+
+./getKegResults\
+ $genbank\
+ $keg\
+ ${synteny_dir}"/subject_"${seq1Name}"_query_"${seq2Name}"_MovementResults.csv"\
+ ${synteny_dir}"/subject_"${seq2Name}"_query_"${seq1Name}"_MovementResults.csv"\
+ ${synteny_dir}"/keglabels.csv"\
+ ${synteny_dir}"/kegCounts.csv"
 	
 
 
