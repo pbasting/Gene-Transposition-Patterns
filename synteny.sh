@@ -1,7 +1,7 @@
 #!/bin/sh
 
-g++ CompareOrthologs.cpp -o CompareOrthologs
-g++ getKegResults.cpp -o getKegResults
+#g++ CompareOrthologs.cpp -o CompareOrthologs
+#g++ getKegResults.cpp -o getKegResults
 
 sequence1=$1
 sequence2=$2
@@ -75,7 +75,6 @@ Rscript makeSyntenyPlot.r ${synteny_dir}"/" "subject_"${seq1Name}"_query_"${seq2
  $keg\
  ${synteny_dir}"/subject_"${seq1Name}"_query_"${seq2Name}"_MovementResults.csv"\
  ${synteny_dir}"/subject_"${seq2Name}"_query_"${seq1Name}"_MovementResults.csv"\
- ${synteny_dir}"/keglabels.csv"\
  ${synteny_dir}"/kegCounts.csv"
 	
 

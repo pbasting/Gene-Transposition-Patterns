@@ -1,3 +1,21 @@
+/***************************************************************************************************
+CompareOrthologs
+Written by: Preston Basting
+Lab: Jan Mrazek
+Last Changed: 8/29/2017
+Purpose: This is a component of a series of programs designed to classify protein
+		 'movement' when comparing two organisms and determine if proteins belonging
+		 to different functional categories are more likely to 'move'
+		 
+		 This function takes format 6 results from blastp (containing qseqid sseqid evalue pident)
+		 done in both directions for a set of organisms. It then classifies the relative movement
+		 of the proteins(didn't move, moved with adjacent proteins, moved without adjacent proteins, 
+		 moved without adjacent proteins into a conserved region). these are output into two csv files
+		 (one for each direction of the blastp) which are used by downstream programs.
+		 
+Arguments: (1)query.fasta, (2)subject.fasta, (3)forwardBlast, (4)reverseBlast, (5)forwardOutputFile,
+		   (6)reverseOutputFile
+****************************************************************************************************/
 #include <iostream>
 #include <vector>
 #include <fstream>
@@ -7,28 +25,41 @@
 
 using namespace std;
 
+//Takes a fasta file and generates a vector of all of the proteinIDs
 vector<string> getProteinIDs(ifstream& fasta);
 
+//generates a vector of positions where the index corresponds to the protein in the  subject fasta and the value 
+//corresponds to the protein in the query fasta. These are linked based upon the blast results
 vector<int> getMatchPositions(ifstream& blast, vector<string> subjectFastaProteins, vector<string> queryFastaProteins);
 
+//parses out all of the subject proteinIDs from the blast results and stores in a vector
 vector<string> getBlastSubjectProteins(ifstream& blast);
 
+//parses out all of the query proteinIDs from the blast results and stores in a vector
 vector<string> getBlastqueryProteins(ifstream& blast);
 
+//if multiple matches exist for the query proteins, the position of the match with the best percent Identity is returned
 int findBestMatch(ifstream& blast, vector<int> matchPositions,vector<string> queryFastaProteins);
 
+//parses out the percent Identity of a given match from the blast results
 double getPercentIdentity(string line);
 
+//outputs all the protein matches and the movement classification information to a csv
 void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile);
 
+//compares the query protein position the the subject protein position to determine
+//if the protein has moved. Returns true if the protein moved
 bool checkForMovement(vector<int> matchPositions, int index);
 
+//checks upstream and downstream query proteins to see if they are conserved compared to the subject
+//returns true if the surrounding proteins are different
 bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySize);
 
-void outputMutualResults(vector<int> forwardMatchPositions, vector<int> reverseMatchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile, string subjectName, string queryName);
-
+//checks upstream and downstream query proteins to see if the protein entered a conserved region
+//returns true if the region is conserved
 bool isConserved(vector<int> matchPositions, int index, int maxQuerySize);
 
+//parses out the file name without the path
 string getFileName(string fileAndPath);
 
 const int PROTEIN_POS_CUTOFF = 200; //the difference from original protein position that can be considered a large move
@@ -40,6 +71,8 @@ const double PERCENT_IDENTITY_CUTOFF = 50.0; //lowest acceptable percent identit
 const int NO_PROTEIN = -1; //indicates no protein match in vectors of match positions
 
 
+
+////////////////////////////MAIN//////////////////////////////////////////////////////
 int main(int argc, char *argv[]){
 	if (argc != 7){
 		cout << "missing/too many arguments! Provide:  query fasta, subject fasta, forward blast results, reverse blast results, and output file name"<< endl;
@@ -55,7 +88,6 @@ int main(int argc, char *argv[]){
 	reverseBlast.open(argv[4]);
 	outputFile1.open(argv[5]);
 	outputFile2.open(argv[6]);
-	//mutualMatchesOut.open(argv[7]);
 	if(!queryFasta.is_open() || !subjectFasta.is_open() || !forwardBlast.is_open() || !reverseBlast.is_open() || !outputFile1.is_open() || !outputFile2.is_open()){
 		cout << "C++ERROR:failed to open one of the files" << endl;
 		return 0;
@@ -76,23 +108,24 @@ int main(int argc, char *argv[]){
 	//outputs the proteins that were found to move based on absolute position and adjacent proteins
 	//only outputs the proteins that were found in both directions of the blast
 	string subjectName = getFileName(argv[2]);
-	string queryName = getFileName(argv[1]);
-	//outputMutualResults(forwardMatchPositions, reverseMatchPositions, subjectFastaProteins, queryFastaProteins, mutualMatchesOut, subjectName, queryName);	
+	string queryName = getFileName(argv[1]);	
 
 	return 0;
 }
 
+
+////////////////////FUNCTIONS////////////////////////////////////////////////////////////////
+
 vector<string> getProteinIDs(ifstream& fasta){
 	vector<string> proteinIDs;
 	for (string line; getline(fasta, line);){
-		if (line[0] == '>'){
+		if (line[0] == '>'){ //finds the line where the annotations are
 			int x =1;
 			string temp = "";
 			while((line[x] != ' ') && (line[x] != '\t') && (x < line.length())){
 				temp+=line[x];
 				x++;
 			}
-			//cout << temp << endl;
 			proteinIDs.push_back(temp);
 		}
 	}
@@ -146,10 +179,10 @@ vector<int> getMatchPositions(ifstream& blast, vector<string> subjectFastaProtei
 	for (int x = 0; x < subjectFastaProteins.size(); x++){
 		matches.clear();
 		for (int y =0; y < blastSubjectProteins.size(); y++){
-			if (subjectFastaProteins[x] == blastSubjectProteins[y]){
+			if (subjectFastaProteins[x] == blastSubjectProteins[y]){ //finds the subject protein in the blast
 				for(int z=0; z < queryFastaProteins.size(); z++){
-					if(blastQueryProteins[y] == queryFastaProteins[z]){
-						matches.push_back(z);
+					if(blastQueryProteins[y] == queryFastaProteins[z]){ //finds the query protein in the query fasta
+						matches.push_back(z); //adds the position of the query protein at the index of the sujbect protein match
 					}
 				}
 			}
@@ -158,7 +191,7 @@ vector<int> getMatchPositions(ifstream& blast, vector<string> subjectFastaProtei
 			matchPositions.push_back(NO_PROTEIN);
 		} else if (matches.size() ==1){
 			matchPositions.push_back(matches[0]);
-		} else {
+		} else { //handles multiple matches//returns the match with the best percent identity
 			matchPositions.push_back(findBestMatch(blast, matches, queryFastaProteins));
 		}
 	}
@@ -216,62 +249,6 @@ void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, 
 		}
 		
 	}
-}
-
-void outputMutualResults(vector<int> forwardMatchPositions, vector<int> reverseMatchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile, string subjectName, string queryName){
-	vector<pair<string, string> > forwardMoved, reverseMoved;
-	pair<string, string> temp;
-	bool movedAbsolute, movedAdjacent, adjacentConserved;
-	//populates a vector of pairs with proteins that have moved based on both absolute position and adjacent proteins
-	//only ands proteins that have left a conserved region
-	cout << "//////////FORWARD////////////////" <<endl;
-	for (int x = 0; x < forwardMatchPositions.size(); x++){
-		movedAbsolute = checkForMovement(forwardMatchPositions, x);
-		movedAdjacent = checkAdjacentProteins(forwardMatchPositions, x, queryFasta.size());
-		//adjacentConserved = isConserved(forwardMatchPositions, x, queryFasta.size());
-		
-		if ((forwardMatchPositions[x] >= 0) && (movedAbsolute) && (movedAdjacent)){
-			if (isConserved(forwardMatchPositions, x, queryFasta.size())){ //only runs this check if the protein moved// speeds up the program
-				temp.first = subjectFasta[x];
-				cout << subjectFasta[x] << "\t";
-				temp.second = queryFasta[forwardMatchPositions[x]];
-				cout << queryFasta[forwardMatchPositions[x]] << endl;
-				forwardMoved.push_back(temp);
-			}
-		}
-	}
-	cout << "///////////REVERSE////////////////" <<endl;
-	//populates a vector of pairs with proteins that have moved based on both absolute position and adjacent proteins
-	//only add proteins that have left a conserved region
-	for (int y = 0; y < reverseMatchPositions.size(); y++){
-		movedAbsolute = checkForMovement(reverseMatchPositions, y);
-		movedAdjacent = checkAdjacentProteins(reverseMatchPositions, y, subjectFasta.size());
-		//adjacentConserved = isConserved(reverseMatchPositions, y, subjectFasta.size());
-		if ((reverseMatchPositions[y] >= 0) && (movedAbsolute) && (movedAdjacent)){
-			if(isConserved(reverseMatchPositions, y, subjectFasta.size())){ //only runs if protein moved// speeds up program
-				temp.first = queryFasta[y];
-				cout << queryFasta[y] << "\t";
-				temp.second = subjectFasta[reverseMatchPositions[y]];
-				cout << subjectFasta[reverseMatchPositions[y]] << endl;
-				reverseMoved.push_back(temp);
-			}
-		}
-	}
-	
-	outputFile << subjectName <<","<<queryName <<endl;
-	//outputFile << "Subject.Protein" <<","<<"Query.Protein" <<endl;
-	//compares the results in both directions and outputs the mutual results to a file
-	cout << "//////////BOTH////////" <<endl;
-	for (int i = 0; i < forwardMoved.size(); i++){
-		for (int j = 0; j < reverseMoved.size(); j++){
-			if ((forwardMoved[i].first == reverseMoved[j].second) && (forwardMoved[i].second == reverseMoved[j].first)){
-				
-				cout << forwardMoved[i].first << "," << forwardMoved[i].second << endl;
-				outputFile << forwardMoved[i].first << "," << forwardMoved[i].second << endl;
-			}
-		}
-	}
-	
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -358,7 +335,6 @@ bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 	double count = 0;
 	//gets upstream proteins//
 	int x=index-1;
-	//int y=0;
 	vector<int> adjacentProteins;
 	while (adjacentProteins.size() < CHECK_RANGE){
 		if (x < 0){
@@ -383,10 +359,8 @@ bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 	}
 	
 	vector<int> proteinsToCheck;
-	//for (int i=0; i < maxQuerySize; i++){
 	int i =0;
 	while (i < maxQuerySize){
-		//cout << i << "/"<<maxQuerySize<<endl;
 		count = 0;
 		
 		//compares all adjacent proteins to a series of increasing numbers

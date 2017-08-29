@@ -1,14 +1,30 @@
+/***************************************************************************************************
+getKegResults
+Written by: Preston Basting
+Lab: Jan Mrazek
+Last Changed: 8/29/2017
+Purpose: This is a component of a series of programs designed to classify protein
+		 'movement' when comparing two organisms and determine if proteins belonging
+		 to different functional categories are more likely to 'move'
+		 
+		 This function takes the results from 'CompareOrthologs', removes all missmatches from the 
+		 forward and reverse results, converts the protein IDs to locus tags found in the genbank file,
+		 then classifies the proteins into functional categories based upon the .kegg file from genome.jp.
+		 The results are output to a text file for future concatenation with results from other organisms
+		 within the same genus.
+		 
+Arguments: (1)subject genbank file, (2)subject keg file, (3)forward 'CompareOrthologs' results
+		   (4)reverse 'CompareOrthologs' results, (5) name of output file
+****************************************************************************************************/
+
 #include <iostream>
 #include <vector>
 #include <fstream>
 #include <string>
 #include <stdlib.h>
 #include <utility>
+#include <algorithm>
 
-
-///////////////////////////////////////////////////
-///CONVERT ALL IDS TAGS TO UPPERCASE WHEN PARSING//
-///////////////////////////////////////////////////
 
 using namespace std;
 
@@ -47,12 +63,14 @@ void removeMismatches(vector<syntenyResult>& forward, vector<syntenyResult>& rev
 void findMutualConserved(vector<syntenyResult>& forward, vector<syntenyResult>& reverse);
 void sortResults(vector<syntenyResult> forward, vector<syntenyResult> reverse, sortedResults& results);
 void categorizeResults(sortedResults results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile);
-vector<int> getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile);
+void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile);
+
 string parseValue(string line);
 string parseKegLine(string line);
+string upperCase(string line);
 
 int main(int argc, char *argv[]){
-	if (argc != 7){
+	if (argc != 6){
 		cout << "missing/too many arguments!"<< endl;
 		return 0;
 	}
@@ -63,6 +81,7 @@ int main(int argc, char *argv[]){
 	kegFile.open(argv[2]);
 	forwardSyntenyFile.open(argv[3]);
 	reverseSyntenyFile.open(argv[4]);
+	countFile.open(argv[5]);
 	
 	vector<geneInfo> genBankParsed;
 	vector<kegInfo> kegParsed;
@@ -79,23 +98,22 @@ int main(int argc, char *argv[]){
 	findMutualConserved(forwardResults, reverseResults);
 	sortResults(forwardResults, reverseResults, resultsSorted);
 	
-	kegLabelFile.open(argv[5]);
-	if (!kegLabelFile.is_open()){
-		ofstream kegLabelsFile;
-		kegLabelsFile.open(argv[5]);
-		for(int x = 0; x < kegParsed.size(); x++){
-			kegLabelsFile << kegParsed[x].category<<",";
-		}
-		kegLabelsFile << endl;
-	}else{
-		cout << "KEG label file found" << endl;
-	}
+	//gets title
+	string title = argv[3];
+	title = title.substr((title.rfind("/")+1)); //removes path from title
 	
-	countFile.open(argv[6]);
+	countFile <<endl<<endl<<endl<<endl<< "#/////////////////////////////////////////////////" << endl <<endl;
+	countFile << upperCase(title) << endl;
+	countFile <<endl<< "/////////////////////////////////////////////////"<<endl;
+	countFile << "TOTAL: " << forwardResults.size() <<endl;
+	countFile << "NOT MOVED: " << resultsSorted.not_moved.size() <<endl;
+	countFile << "MOVED ABSOLUTE: " << resultsSorted.moved.size() <<endl;
+	countFile<< "MOVED ADJACENT: " << resultsSorted.moved_adjacent.size() <<endl;
+	countFile << "MOVED CONSERVED: " << resultsSorted.moved_conserved.size() <<endl;
+	countFile << "MOVED MUTUAL CONSERVED: " << resultsSorted.conserved_both.size() <<endl;
+	
 	categorizeResults(resultsSorted, genBankParsed, kegParsed, countFile);
 
-
-	
 	cout << "UNMOVED: " << resultsSorted.not_moved.size() <<endl;
 	cout << "MOVED: " << resultsSorted.moved.size() <<endl;
 	cout << "MOVED ALONE: " << resultsSorted.moved_adjacent.size() <<endl;
@@ -111,10 +129,8 @@ void parseGenBank(ifstream& genBankFile, vector<geneInfo>& parsedInfo){
 	string line;
 	geneInfo gene;
 	while(!genBankFile.eof()){
-		//cout <<line <<endl;
 		getline(genBankFile, line);
 		if (line.find("    CDS    ")!=string::npos){ //finds CDS
-			//cout << line <<endl;
 			gene.locusTag = "";
 			gene.oldLocusTag = "";
 			gene.proteinID="";
@@ -122,16 +138,13 @@ void parseGenBank(ifstream& genBankFile, vector<geneInfo>& parsedInfo){
 				getline(genBankFile, line);
 				if(line.find("/locus_tag=") != string::npos){ //finds locus tag
 					gene.locusTag = parseValue(line);
-					//cout << line <<endl;
 				}
 				if(line.find("/old_locus_tag=") != string::npos){ //finds locus tag
 					gene.oldLocusTag = parseValue(line);
-					//cout << line <<endl;
 				}
 				if(line.find("/protein_id=") != string::npos){ //find protein ID
 					gene.proteinID = parseValue(line);
 					gene.proteinID = gene.proteinID.substr(0, gene.proteinID.rfind(".")); //removes version number
-					//cout << line <<endl;
 				}
 			}while((line.find("    gene    ")==string::npos) && (!genBankFile.eof()));
 			parsedInfo.push_back(gene); //adds struct to vector
@@ -146,15 +159,16 @@ string parseValue(string line){
 	for (pos; ((line[pos] != '\n') && (line[pos] != '"')); pos++){
 		value+=line[pos];
 	}
-	return value;
+	return upperCase(value);
 }
 
 //finds categories and the genes within those categories
 //assigns them to values of a struct then adds the struct to a vector
 void parseKegFile(ifstream& kegFile, vector<kegInfo>& parsedKeg){
-	string line;
+	string line, temp;
 	kegInfo keg;
 	bool passedOverview = false;
+	bool match = false;
 	while(!kegFile.eof()){
 		getline(kegFile, line);
 		if(line.find("<b>Overview</b>")==string::npos && line[0] == 'B' && line.find("<b>") != string::npos){
@@ -167,7 +181,16 @@ void parseKegFile(ifstream& kegFile, vector<kegInfo>& parsedKeg){
 			passedOverview = true; //assigned to true after overview is skipped
 		}
 		if(line[0] == 'D'){
-			keg.genes.push_back(parseKegLine(line));
+			match = false;
+			temp = parseKegLine(line);
+			for(int i = 0; i < keg.genes.size(); i++){
+				if (keg.genes[i] == temp){
+					match = true;
+				}
+			}
+			if (!match){//prevents duplicates from being added
+				keg.genes.push_back(temp); 
+			}
 		}
 	}	
 }
@@ -190,7 +213,7 @@ string parseKegLine(string line){
 		}
 	}
 	
-	return parsedLine;
+	return upperCase(parsedLine);
 }
 
 //parses the results from 'CompareOrthologs' and stores them into a struct
@@ -210,8 +233,7 @@ void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsed
 				temp += line[pos];
 			}
 			temp = temp.substr(0,temp.rfind("."));
-			//cout << temp <<"\t";
-			result.sub_prot = temp;
+			result.sub_prot = upperCase(temp);
 			
 			//gets query protein ID///
 			temp = "";
@@ -221,8 +243,7 @@ void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsed
 				temp += line[pos];
 			}
 			temp = temp.substr(0,temp.rfind("."));
-			//cout << temp <<"\t";
-			result.query_prot = temp;
+			result.query_prot = upperCase(temp);
 			
 			//gets movement info//
 			line = line.substr(line.find(temp));
@@ -230,13 +251,10 @@ void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsed
 			line = line.substr(line.find(",")+1); // moves past subject protein pos
 			line = line.substr(line.find(",")+1); // moves past query protein pos
 			result.moved = line[0]-48; //-48 to convert char to int
-			//cout <<line[0] << "\t";
 			line = line.substr(line.find(",")+1); //moves past 'moved'
 			result.moved_adjacent = line[0]-48; //-48 to convert char to int
-			//cout <<line[0] << "\t";
 			line = line.substr(line.find(",")+1); //moves past 'moved adjacent'
 			result.moved_conserved = line[0]-48; //-48 to convert char to int
-			//cout <<line[0] << endl;
 			result.conserved_both = 0;
 			parsedInfo.push_back(result);
 		}
@@ -249,8 +267,6 @@ void removeMismatches(vector<syntenyResult>& forward, vector<syntenyResult>& rev
 	int count = 0;
 	int matchCount;
 	vector<syntenyResult> forwardTemp, reverseTemp;
-	//cout << "total forward: " << forward.size() <<endl;
-	//cout << "total reverse: " << reverse.size() <<endl;
 	
 	//remove proteins with no matches in the reverse condition//
 	if(forward.size() < reverse.size()){
@@ -295,9 +311,6 @@ void removeMismatches(vector<syntenyResult>& forward, vector<syntenyResult>& rev
 	reverse.clear();
 	forward = forwardTemp;
 	reverse = reverseTemp;
-	
-	cout << "remaining forward: " << forward.size() << endl;
-	cout << "remaining reverse: " << reverse.size() << endl;
 }
 
 
@@ -313,13 +326,11 @@ void findMutualConserved(vector<syntenyResult>& forward, vector<syntenyResult>& 
 					
 					forward[i].conserved_both = 1;
 					reverse[j].conserved_both = 1;
-					//cout <<forward[i].sub_prot << " " << reverse[j].sub_prot <<endl;
 					count++;
 				}
 			}
 		}
 	}
-	//cout << "mutually moved into/from conserved: " << count <<endl;
 }
 
 
@@ -337,11 +348,6 @@ void sortResults(vector<syntenyResult> forward, vector<syntenyResult> reverse, s
 			temp.second = forward[i].query_prot;
 			results.moved.push_back(temp);
 		}
-		/*if (forward[i].moved ==1 && forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 0){ //moved based upon adjacent proteins
-			temp.first = forward[i].sub_prot;
-			temp.second = forward[i].query_prot;
-			results.moved_adjacent.push_back(temp);
-		}*/
 		if (forward[i].moved ==1 && forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 1 && forward[i].conserved_both == 0){ //moved based upon adjacent proteins into a conserved region
 			temp.first = forward[i].sub_prot;
 			temp.second = forward[i].query_prot;
@@ -383,51 +389,50 @@ void sortResults(vector<syntenyResult> forward, vector<syntenyResult> reverse, s
 
 
 void categorizeResults(sortedResults results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile){
-	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, moveConservedBoth;
-	notMoved = getCategoryCounts(results.not_moved, parsedGenBank, parsedKeg, outputFile);
-	movedAbsolute = getCategoryCounts(results.moved, parsedGenBank, parsedKeg, outputFile);
-	movedAdjacent = getCategoryCounts(results.moved_adjacent, parsedGenBank, parsedKeg, outputFile);
-	movedConserved = getCategoryCounts(results.moved_conserved, parsedGenBank, parsedKeg, outputFile);
-	movedAdjacent = getCategoryCounts(results.conserved_both, parsedGenBank, parsedKeg, outputFile);
-	outputFile << endl;
+	outputFile <<endl<< "///////NOT_MOVED////////////"<<endl <<endl;
+	getCategoryCounts(results.not_moved, parsedGenBank, parsedKeg, outputFile);
+	outputFile <<endl<< "///////MOVED_ABSOLUTE////////////"<<endl <<endl;
+	getCategoryCounts(results.moved, parsedGenBank, parsedKeg, outputFile);
+	outputFile <<endl<< "///////MOVED_ADJACENT////////////"<<endl <<endl;
+	getCategoryCounts(results.moved_adjacent, parsedGenBank, parsedKeg, outputFile);
+	outputFile <<endl<< "///////MOVED_CONSERVED////////////"<<endl<<endl;
+	getCategoryCounts(results.moved_conserved, parsedGenBank, parsedKeg, outputFile);
+	outputFile <<endl<< "///////MOVED_MUTUAL_CONSERVED////////////"<<endl<<endl;
+	getCategoryCounts(results.conserved_both, parsedGenBank, parsedKeg, outputFile);
 }
 
 
-//I'm writing this to be compatable with locus tags or old locus tags
-vector<int> getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile){
-	vector<pair<string, string> > locusTags;
-	vector<int> categoryCounts;
-	pair<string, string> temp;
-	for(int x = 0; x < results.size(); x++){
-		for (int y=0; y < parsedGenBank.size(); y ++){
+void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile){
+	bool nameOutput = false;
+	for(int x=0; x< results.size(); x++){
+		for(int y=0; y < parsedGenBank.size(); y++){
 			if(results[x].first == parsedGenBank[y].proteinID){
-				temp.first = "";
-				temp.second = "";
-				//cout << results[x].first << "\t" << parsedGenBank[y].oldLocusTag << "\t" << parsedGenBank[y].locusTag <<endl;
-				temp.first = parsedGenBank[y].oldLocusTag;
-				temp.second = parsedGenBank[y].locusTag;
-				locusTags.push_back(temp);
-			}
-		}
-	}
-	
-	int count;
-	for(int i =0; i < parsedKeg.size(); i++){
-		count = 0;
-		for(int j = 0; j < parsedKeg[i].genes.size(); j++){
-			for(int k = 0; k < locusTags.size(); k++){
-				if(parsedKeg[i].genes[j] == locusTags[k].first || parsedKeg[i].genes[j] == locusTags[k].second){
-					count++;
+				for(int z=0; z < parsedKeg.size(); z++){
+					for(int a=0; a < parsedKeg[z].genes.size(); a++){
+						if(parsedKeg[z].genes[a] == parsedGenBank[y].oldLocusTag || parsedKeg[z].genes[a] == parsedGenBank[y].locusTag){
+							if (!nameOutput){
+								outputFile << results[x].first <<"\t";
+								outputFile << parsedGenBank[y].oldLocusTag << "\t" << parsedGenBank[y].locusTag <<"\t";
+								nameOutput = true;
+							}
+							outputFile << parsedKeg[z].category << "\t";
+						}
+					}
 				}
+				break;
 			}
 		}
-		categoryCounts.push_back(count);
-		//cout << parsedKeg[i].category << "\t" << count <<endl;
-		outputFile << count << ",";
+		if(nameOutput){
+			outputFile << endl;
+			nameOutput = false;
+		}
 	}
-	return categoryCounts;
 }
 
+string upperCase(string line){
+	transform(line.begin(), line.end(), line.begin(), ::toupper);
+	return line;
+}
 
 
 
