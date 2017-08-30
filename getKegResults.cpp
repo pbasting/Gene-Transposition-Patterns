@@ -2,7 +2,7 @@
 getKegResults
 Written by: Preston Basting
 Lab: Jan Mrazek
-Last Changed: 8/29/2017
+Last Changed: 8/30/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -56,13 +56,33 @@ struct kegInfo{ //stores parsed info from keg
 	vector<string> genes;
 };
 
+//takes subject genbank file and parses the relevant information into a vector of structs
 void parseGenBank(ifstream& genBankFile, vector<geneInfo>& parsedInfo);
+
+//takes the subject keg file and parses the relavent information into a vector of structs
 void parseKegFile(ifstream& kegFile, vector<kegInfo>& parsedKeg);
+
+//takes the results from 'CompareOrthologs' and parses the information into a vector of structs
 void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsedInfo);
+
+//takes the parsed information from the forward and reverse synteny results and removes any
+//mismatches or matches in one result that don't exist in the other
 void removeMismatches(vector<syntenyResult>& forward, vector<syntenyResult>& reverse);
+
+//takes the paresd forward and reverse synteny results and finds the proteins that enter
+//conserved regions from the forward and reverse perspective
 void findMutualConserved(vector<syntenyResult>& forward, vector<syntenyResult>& reverse);
+
+//sorts the results into the movement categories and stores that as a struct
 void sortResults(vector<syntenyResult> forward, vector<syntenyResult> reverse, sortedResults& results);
+
+//assigns keg functional categories to the parsed results and outputs to a text file
+//uses the genbank to convert protein IDs to locus tags which are used by the keg file
 void categorizeResults(sortedResults results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile);
+
+//used by 'categorizeResults' function
+//finds the appropriate keg category (if it exists) and exports the subject and query protein IDs
+//and the keg categories to a text file
 void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile);
 
 string parseValue(string line);
@@ -88,12 +108,13 @@ int main(int argc, char *argv[]){
 	vector<syntenyResult> forwardResults, reverseResults;
 	sortedResults resultsSorted;
 	
+	//parses input files into structs
 	parseGenBank(genBankFile, genBankParsed);
 	parseKegFile(kegFile, kegParsed);
-
-	
 	parseSyntenyResults(forwardSyntenyFile, forwardResults);
 	parseSyntenyResults(reverseSyntenyFile, reverseResults);
+	
+	//cleans up the synteny data
 	removeMismatches(forwardResults, reverseResults);
 	findMutualConserved(forwardResults, reverseResults);
 	sortResults(forwardResults, reverseResults, resultsSorted);
@@ -102,8 +123,9 @@ int main(int argc, char *argv[]){
 	string title = argv[3];
 	title = title.substr((title.rfind("/")+1)); //removes path from title
 	
-	countFile <<endl<<endl<<endl<<endl<< "#/////////////////////////////////////////////////" << endl <<endl;
-	countFile << upperCase(title) << endl;
+	//outputs count information to a file
+	countFile <<endl<<endl<<endl<<endl<< "/////////////////////////////////////////////////" << endl <<endl;
+	countFile << "##" << upperCase(title) << endl;
 	countFile <<endl<< "/////////////////////////////////////////////////"<<endl;
 	countFile << "TOTAL: " << forwardResults.size() <<endl;
 	countFile << "NOT MOVED: " << resultsSorted.not_moved.size() <<endl;
@@ -112,6 +134,7 @@ int main(int argc, char *argv[]){
 	countFile << "MOVED CONSERVED: " << resultsSorted.moved_conserved.size() <<endl;
 	countFile << "MOVED MUTUAL CONSERVED: " << resultsSorted.conserved_both.size() <<endl;
 	
+	//outputs protein IDs and keg categories to a file
 	categorizeResults(resultsSorted, genBankParsed, kegParsed, countFile);
 
 	cout << "UNMOVED: " << resultsSorted.not_moved.size() <<endl;
@@ -389,32 +412,30 @@ void sortResults(vector<syntenyResult> forward, vector<syntenyResult> reverse, s
 
 
 void categorizeResults(sortedResults results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile){
-	outputFile <<endl<< "///////NOT_MOVED////////////"<<endl <<endl;
+	outputFile <<endl<< "!!NOT_MOVED!!"<<endl <<endl;
 	getCategoryCounts(results.not_moved, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "///////MOVED_ABSOLUTE////////////"<<endl <<endl;
+	outputFile <<endl<< "!!MOVED_ABSOLUTE!!"<<endl <<endl;
 	getCategoryCounts(results.moved, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "///////MOVED_ADJACENT////////////"<<endl <<endl;
+	outputFile <<endl<< "!!MOVED_ADJACENT!!"<<endl <<endl;
 	getCategoryCounts(results.moved_adjacent, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "///////MOVED_CONSERVED////////////"<<endl<<endl;
+	outputFile <<endl<< "!!MOVED_CONSERVED!!"<<endl<<endl;
 	getCategoryCounts(results.moved_conserved, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "///////MOVED_MUTUAL_CONSERVED////////////"<<endl<<endl;
+	outputFile <<endl<< "!!MOVED_MUTUAL_CONSERVED!!"<<endl<<endl;
 	getCategoryCounts(results.conserved_both, parsedGenBank, parsedKeg, outputFile);
 }
 
 
 void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile){
-	bool nameOutput = false;
-	for(int x=0; x< results.size(); x++){
+	bool categorized = false;
+	for(int x=0; x< results.size(); x++){ //loops through protein pairs
+		outputFile <<"$$\t"<< results[x].first <<"\t" <<results[x].second << "\t";
 		for(int y=0; y < parsedGenBank.size(); y++){
-			if(results[x].first == parsedGenBank[y].proteinID){
-				for(int z=0; z < parsedKeg.size(); z++){
-					for(int a=0; a < parsedKeg[z].genes.size(); a++){
+			if(results[x].first == parsedGenBank[y].proteinID){ //finds locus tag
+				for(int z=0; z < parsedKeg.size(); z++){ //loops through all keg categories
+					for(int a=0; a < parsedKeg[z].genes.size(); a++){ //loops though all locus tags for a category
+						
 						if(parsedKeg[z].genes[a] == parsedGenBank[y].oldLocusTag || parsedKeg[z].genes[a] == parsedGenBank[y].locusTag){
-							if (!nameOutput){
-								outputFile << results[x].first <<"\t";
-								outputFile << parsedGenBank[y].oldLocusTag << "\t" << parsedGenBank[y].locusTag <<"\t";
-								nameOutput = true;
-							}
+							categorized = true; //controls whether or not a protein is assigned 'UNCATEGORIZED'
 							outputFile << parsedKeg[z].category << "\t";
 						}
 					}
@@ -422,10 +443,11 @@ void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> p
 				break;
 			}
 		}
-		if(nameOutput){
-			outputFile << endl;
-			nameOutput = false;
+		if(!categorized){
+			outputFile << "UNCATEGORIZED";
 		}
+		outputFile <<endl;
+		categorized = false;
 	}
 }
 

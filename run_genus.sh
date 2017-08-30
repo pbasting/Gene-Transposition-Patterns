@@ -27,14 +27,17 @@ for org1 in fastas/${genus}/${g}_*; do
 done
 
 mkdir synteny_results/${genus}
-touch synteny_results/${genus}/${genus}_movedProteins.csv
+touch synteny_results/${genus}/${genus}_movedProteins.txt
 
 #moves all synteny_results into a directory named after the genus
 for dir in synteny_results/${g}_*; do
-	cat ${dir}/kegCounts.csv >> synteny_results/${genus}/${genus}_movedProteins.csv #concatenates all results for a genus into a .csv
+	cat ${dir}/kegCounts.csv >> synteny_results/${genus}/${genus}_movedProteins.txt #concatenates all results for a genus into a .csv
 	mv ${dir} synteny_results/${genus}
 done
 
 #moves all the blast results to a single directory named after the genus
 mkdir blast_results/${genus}
 mv blast_results/${g}_* blast_results/${genus}
+
+
+./FormatKegResults $keg1 synteny_results/${genus}/${genus}_movedProteins.txt synteny_results/${genus}/${genus}_formatted_movedProteins.csv
