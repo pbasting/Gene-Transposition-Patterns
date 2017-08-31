@@ -32,6 +32,7 @@ struct geneInfo{ //stores parsed info from genbank
 	string oldLocusTag;
 	string locusTag;
 	string proteinID;
+	string product;
 };
 
 struct syntenyResult{ //stores parsed info from synteny results
@@ -88,6 +89,7 @@ void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> p
 string parseValue(string line);
 string parseKegLine(string line);
 string upperCase(string line);
+string removePosition(string proteinID);
 
 int main(int argc, char *argv[]){
 	if (argc != 6){
@@ -157,6 +159,7 @@ void parseGenBank(ifstream& genBankFile, vector<geneInfo>& parsedInfo){
 			gene.locusTag = "";
 			gene.oldLocusTag = "";
 			gene.proteinID="";
+			gene.product="";
 			do{
 				getline(genBankFile, line);
 				if(line.find("/locus_tag=") != string::npos){ //finds locus tag
@@ -164,6 +167,9 @@ void parseGenBank(ifstream& genBankFile, vector<geneInfo>& parsedInfo){
 				}
 				if(line.find("/old_locus_tag=") != string::npos){ //finds locus tag
 					gene.oldLocusTag = parseValue(line);
+				}
+				if(line.find("/product=") != string::npos){
+					gene.product = ("/product="+parseValue(line));
 				}
 				if(line.find("/protein_id=") != string::npos){ //find protein ID
 					gene.proteinID = parseValue(line);
@@ -179,7 +185,7 @@ string parseValue(string line){
 	int pos = line.find("=");
 	string value;
 	pos+=2; //moves past '=' and '"'
-	for (pos; ((line[pos] != '\n') && (line[pos] != '"')); pos++){
+	for (pos; ((line[pos] != '\n') && (line[pos] != '"')) && (value.find("\" ") ==string::npos) && pos < line.length(); pos++){
 		value+=line[pos];
 	}
 	return upperCase(value);
@@ -252,20 +258,20 @@ void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsed
 			//gets subject protein ID////
 			pos = line.find("_prot_");
 			pos+=6;
-			for (pos; ((line[pos] != '\n') && (line[pos] != ',')); pos++){
-				temp += line[pos];
+			for (pos; ((line[pos] != '\n') && (line[pos-1] != ',')); pos++){
+				temp += line[pos]; 
 			}
-			temp = temp.substr(0,temp.rfind("."));
+			temp = temp.substr(0,temp.rfind(","));
 			result.sub_prot = upperCase(temp);
 			
 			//gets query protein ID///
 			temp = "";
 			pos = line.rfind("_prot_");
 			pos+=6;
-			for (pos; ((line[pos] != '\n') && (line[pos] != ',')); pos++){
+			for (pos; ((line[pos] != '\n') && (line[pos-1] != ',')); pos++){
 				temp += line[pos];
 			}
-			temp = temp.substr(0,temp.rfind("."));
+			temp = temp.substr(0,temp.rfind(","));
 			result.query_prot = upperCase(temp);
 			
 			//gets movement info//
@@ -412,25 +418,36 @@ void sortResults(vector<syntenyResult> forward, vector<syntenyResult> reverse, s
 
 
 void categorizeResults(sortedResults results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile){
-	outputFile <<endl<< "!!NOT_MOVED!!"<<endl <<endl;
+	outputFile << "!!NOT_MOVED!!"<<endl;
 	getCategoryCounts(results.not_moved, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "!!MOVED_ABSOLUTE!!"<<endl <<endl;
+	outputFile << "**" <<endl;
+	outputFile << "!!MOVED_ABSOLUTE!!"<<endl;
 	getCategoryCounts(results.moved, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "!!MOVED_ADJACENT!!"<<endl <<endl;
+	outputFile << "**" <<endl;
+	outputFile << "!!MOVED_ADJACENT!!"<<endl;
 	getCategoryCounts(results.moved_adjacent, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "!!MOVED_CONSERVED!!"<<endl<<endl;
+	outputFile << "**" <<endl;
+	outputFile << "!!MOVED_CONSERVED!!"<<endl;
 	getCategoryCounts(results.moved_conserved, parsedGenBank, parsedKeg, outputFile);
-	outputFile <<endl<< "!!MOVED_MUTUAL_CONSERVED!!"<<endl<<endl;
+	outputFile << "**" <<endl;
+	outputFile << "!!MOVED_MUTUAL_CONSERVED!!"<<endl;
 	getCategoryCounts(results.conserved_both, parsedGenBank, parsedKeg, outputFile);
+	outputFile << "**" <<endl;
 }
 
 
 void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> parsedGenBank, vector<kegInfo> parsedKeg, ofstream& outputFile){
 	bool categorized = false;
+	int productIndex=0;
+	bool productFound = false;
 	for(int x=0; x< results.size(); x++){ //loops through protein pairs
 		outputFile <<"$$\t"<< results[x].first <<"\t" <<results[x].second << "\t";
+		productIndex = 0;
+		productFound = false;
 		for(int y=0; y < parsedGenBank.size(); y++){
-			if(results[x].first == parsedGenBank[y].proteinID){ //finds locus tag
+			if(removePosition(results[x].first) == parsedGenBank[y].proteinID){ //finds locus tag
+				productIndex = y;
+				productFound = true;
 				for(int z=0; z < parsedKeg.size(); z++){ //loops through all keg categories
 					for(int a=0; a < parsedKeg[z].genes.size(); a++){ //loops though all locus tags for a category
 						
@@ -444,9 +461,15 @@ void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> p
 			}
 		}
 		if(!categorized){
-			outputFile << "UNCATEGORIZED";
+			outputFile << "UNCATEGORIZED" << "\t";
 		}
-		outputFile <<endl;
+		if(productFound == true){
+			outputFile<< parsedGenBank[productIndex].product <<endl;
+		}else{
+			outputFile <<endl;
+		}
+		
+		//outputFile <<endl;
 		categorized = false;
 	}
 }
@@ -454,6 +477,11 @@ void getCategoryCounts(vector<pair<string, string> > results, vector<geneInfo> p
 string upperCase(string line){
 	transform(line.begin(), line.end(), line.begin(), ::toupper);
 	return line;
+}
+
+string removePosition(string proteinID){
+	proteinID = proteinID.substr(0,proteinID.find("."));
+	return proteinID;
 }
 
 

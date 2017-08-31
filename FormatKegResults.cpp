@@ -31,13 +31,26 @@ struct data{ //stores count data for keg categories
 	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
 };
 
+//takes a keg file and parses out the categories. Stores all the categories into a vector
 vector<string> parseKegFile(ifstream& kegFile);
+
+//takes a line from a keg file taht contains a category. Parses out the name of the category
 string parseKegLine(string line);
+
+//converts a string to uppercase
 string upperCase(string line);
+
+//takes the results from 'getKegResults', counts how many proteins match to each category and splits
+//the count into movement categories
 void buildTable(vector<string> categories, ifstream& results, data& countData);
+
+//used by build table to tally counts for each movement category in each keg category
 void getCategoryCounts(vector<int>& counts, string movement, vector<string> categories, string line, ifstream& file);
-void displayTable(data countData);
+
+//outputs the count results to a .csv
 void outputTable(data countData, ofstream& outputFile);
+
+
 
 int main(int argc, char *argv[]){
 	if (argc != 4){
@@ -49,19 +62,14 @@ int main(int argc, char *argv[]){
 	kegResults.open(argv[2]);
 	
 	vector<string> kegCategories = parseKegFile(kegFile);
-	kegCategories.push_back("UNCATEGORIZED");
+	kegCategories.push_back("UNCATEGORIZED"); //adds uncategorized as a category 
+	
 	data countData;
-	
-	
 	buildTable(kegCategories, kegResults, countData);
-	displayTable(countData);
 	
 	ofstream output;
 	output.open(argv[3]);
-	
 	outputTable(countData, output);
-	
-
 	
 	return 0;
 }
@@ -72,6 +80,8 @@ vector<string> parseKegFile(ifstream& kegFile){
 	vector<string> categories;
 	while(!kegFile.eof()){
 		getline(kegFile, line);
+		//skips overview
+		//all category lines start with B and are wrapped in <b></b>
 		if(line.find("<b>Overview</b>")==string::npos && line[0] == 'B' && line.find("<b>") != string::npos){
 			line = parseKegLine(line);
 			categories.push_back(line);
@@ -84,14 +94,10 @@ string parseKegLine(string line){
 	int pos;
 	string parsedLine = "";
 	pos = line.find("<b>");
-	pos+=3;
+	pos+=3; //skips past <b>
 	while(line[pos] != '<' && pos < line.length()){
-		if(line[pos] != ','){ //prevents ',' in category from messing up CSV
-			parsedLine += line[pos];
-			pos++;
-		}else{
-			pos++;
-		}
+		parsedLine += line[pos];
+		pos++;
 	}
 	
 	return upperCase(parsedLine);
@@ -106,6 +112,7 @@ void buildTable(vector<string> categories, ifstream& results, data& countData){
 	string line="";
 	string assignment;
 	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
+	//adds zeros to all vector positions so specific indexes can be increased during the count
 	for(int i = 0; i < categories.size(); i++){
 			notMoved.push_back(0);
 			movedAbsolute.push_back(0);
@@ -116,17 +123,16 @@ void buildTable(vector<string> categories, ifstream& results, data& countData){
 	
 	while(!results.eof()){
 		getline(results, line);
-		if(line.find("!!")!=string::npos){
+		if(line.find("!!")!=string::npos){ //!! indicates the line contains a movement category
 			getCategoryCounts(notMoved, "NOT_MOVED", categories, line, results);
 			getCategoryCounts(movedAbsolute, "MOVED_ABSOLUTE", categories, line, results);
 			getCategoryCounts(movedAdjacent, "MOVED_ADJACENT", categories, line, results);
 			getCategoryCounts(movedConserved, "MOVED_CONSERVED", categories, line, results);
 			getCategoryCounts(mutualConserved, "MOVED_MUTUAL_CONSERVED", categories, line, results);
-		}else{
-			getline(results, line);
 		}
 	}
 	
+	//builds countData struct
 	countData.categories = categories;
 	countData.notMoved = notMoved;
 	countData.movedAbsolute = movedAbsolute;
@@ -139,11 +145,10 @@ void buildTable(vector<string> categories, ifstream& results, data& countData){
 
 void getCategoryCounts(vector<int>& counts, string movement, vector<string> categories, string line, ifstream& file){
 	if(line.find(movement)!=string::npos){
-		getline(file, line);
-		while(line.find("!!")==string::npos && !file.eof()){
+		while(line.find("**")==string::npos){ //** indicates end of a movement category
 			getline(file, line);
 			for (int x = 0; x < categories.size(); x++){
-				if (line.find(categories[x]) != string::npos){
+				if (line.find(categories[x]) != string::npos){ //if the category is found in the line
 					counts[x]+=1;
 				}
 			}
@@ -151,20 +156,15 @@ void getCategoryCounts(vector<int>& counts, string movement, vector<string> cate
 	}
 }
 
-void displayTable(data countData){
-	for (int x = 0; x < countData.categories.size(); x++){
-		cout << countData.categories[x] << "\t";
-		cout << countData.notMoved[x] << "\t";
-		cout << countData.movedAbsolute[x] << "\t";
-		cout << countData.movedAdjacent[x] << "\t";
-		cout << countData.movedConserved[x] << "\t";
-		cout << countData.mutualConserved[x] << endl;
-	}
-}
 
 void outputTable(data countData, ofstream& outputFile){
 	outputFile << "FUNCTION,UNMOVED,MOVED.ABS,MOVED.ADJ,MOVED.CONS,MUTUAL.CONS"<<endl;
 	for (int x = 0; x < countData.categories.size(); x++){
+		if(countData.categories[x] == "Folding, sorting and degradation"){ //the comma in this category messes up the comma delimiting
+			outputFile << "Folding sorting and degradation,"; //this is the same catagory title without the comma
+		}else{
+			outputFile << countData.categories[x] << ",";
+		}
 		outputFile << countData.categories[x] << ",";
 		outputFile << countData.notMoved[x] << ",";
 		outputFile << countData.movedAbsolute[x] << ",";

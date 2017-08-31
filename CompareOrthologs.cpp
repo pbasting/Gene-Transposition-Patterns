@@ -368,7 +368,7 @@ bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 		//this is looking to see if the adjacent proteins are a conserved region
 		int j =i;
 		int q = 0;
-		while(q < totalChecked){
+		while(q < totalChecked*2){
 			if (j >= maxQuerySize){
 				j = 0;
 			}
