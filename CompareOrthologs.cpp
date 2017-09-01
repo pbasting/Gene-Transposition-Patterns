@@ -1,8 +1,9 @@
 /***************************************************************************************************
 CompareOrthologs
 Written by: Preston Basting
+Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 8/29/2017
+Last Changed: 9/1/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'

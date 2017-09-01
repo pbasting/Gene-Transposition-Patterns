@@ -1,8 +1,9 @@
 /***************************************************************************************************
 getKegResults
 Written by: Preston Basting
+Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 8/30/2017
+Last Changed: 9/1/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -138,13 +139,13 @@ int main(int argc, char *argv[]){
 	
 	//outputs protein IDs and keg categories to a file
 	categorizeResults(resultsSorted, genBankParsed, kegParsed, countFile);
-
+/*
 	cout << "UNMOVED: " << resultsSorted.not_moved.size() <<endl;
 	cout << "MOVED: " << resultsSorted.moved.size() <<endl;
 	cout << "MOVED ALONE: " << resultsSorted.moved_adjacent.size() <<endl;
 	cout << "MOVED INTO CONSERVED REGION: " << resultsSorted.moved_conserved.size() <<endl;
 	cout << "MOVED INTO/FROM CONSERVED REGION: " << resultsSorted.conserved_both.size() <<endl;
-	
+*/
 	return 0;
 }
 

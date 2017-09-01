@@ -1,8 +1,9 @@
 /***************************************************************************************************
 FormatKegResults
 Written by: Preston Basting
+Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 8/30/2017
+Last Changed: 9/1/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -160,12 +161,11 @@ void getCategoryCounts(vector<int>& counts, string movement, vector<string> cate
 void outputTable(data countData, ofstream& outputFile){
 	outputFile << "FUNCTION,UNMOVED,MOVED.ABS,MOVED.ADJ,MOVED.CONS,MUTUAL.CONS"<<endl;
 	for (int x = 0; x < countData.categories.size(); x++){
-		if(countData.categories[x] == "Folding, sorting and degradation"){ //the comma in this category messes up the comma delimiting
-			outputFile << "Folding sorting and degradation,"; //this is the same catagory title without the comma
+		if(countData.categories[x] == upperCase("Folding, sorting and degradation")){ //the comma in this category messes up the comma delimiting
+			outputFile << upperCase("Folding sorting and degradation,"); //this is the same catagory title without the comma
 		}else{
 			outputFile << countData.categories[x] << ",";
 		}
-		outputFile << countData.categories[x] << ",";
 		outputFile << countData.notMoved[x] << ",";
 		outputFile << countData.movedAbsolute[x] << ",";
 		outputFile << countData.movedAdjacent[x] << ",";
