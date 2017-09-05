@@ -32,6 +32,14 @@ struct data{ //stores count data for keg categories
 	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
 };
 
+struct movements{
+	string subject;
+	string query;
+	string keg;
+	int move;
+};
+
+
 //takes a keg file and parses out the categories. Stores all the categories into a vector
 vector<string> parseKegFile(ifstream& kegFile);
 
@@ -41,12 +49,17 @@ string parseKegLine(string line);
 //converts a string to uppercase
 string upperCase(string line);
 
-//takes the results from 'getKegResults', counts how many proteins match to each category and splits
-//the count into movement categories
-void buildTable(vector<string> categories, ifstream& results, data& countData);
+void buildMovementResults(ifstream& data, vector<movements>& proteins);
 
-//used by build table to tally counts for each movement category in each keg category
-void getCategoryCounts(vector<int>& counts, string movement, vector<string> categories, string line, ifstream& file);
+int getMovementCategory(string line);
+
+void buildResult(string line, movements& result);
+
+void removeDuplicates(vector<movements>& proteins);
+
+//takes the parsed results from 'getKegResults', counts how many proteins match to each category and splits
+//the count into movement categories
+void buildTable(vector<string> categories, vector<movements> results, data& countData);
 
 //outputs the count results to a .csv
 void outputTable(data countData, ofstream& outputFile);
@@ -65,8 +78,14 @@ int main(int argc, char *argv[]){
 	vector<string> kegCategories = parseKegFile(kegFile);
 	kegCategories.push_back("UNCATEGORIZED"); //adds uncategorized as a category 
 	
+	vector<movements> movementResults;
+	buildMovementResults(kegResults, movementResults);
+	removeDuplicates(movementResults);
+	
+	kegResults.clear();
+	kegResults.seekg(0,ios::beg);
 	data countData;
-	buildTable(kegCategories, kegResults, countData);
+	buildTable(kegCategories, movementResults, countData);
 	
 	ofstream output;
 	output.open(argv[3]);
@@ -109,48 +128,127 @@ string upperCase(string line){
 	return line;
 }
 
-void buildTable(vector<string> categories, ifstream& results, data& countData){
-	string line="";
-	string assignment;
-	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
-	//adds zeros to all vector positions so specific indexes can be increased during the count
-	for(int i = 0; i < categories.size(); i++){
-			notMoved.push_back(0);
-			movedAbsolute.push_back(0);
-			movedAdjacent.push_back(0);
-			movedConserved.push_back(0);
-			mutualConserved.push_back(0);
-	}
-	
-	while(!results.eof()){
-		getline(results, line);
-		if(line.find("!!")!=string::npos){ //!! indicates the line contains a movement category
-			getCategoryCounts(notMoved, "NOT_MOVED", categories, line, results);
-			getCategoryCounts(movedAbsolute, "MOVED_ABSOLUTE", categories, line, results);
-			getCategoryCounts(movedAdjacent, "MOVED_ADJACENT", categories, line, results);
-			getCategoryCounts(movedConserved, "MOVED_CONSERVED", categories, line, results);
-			getCategoryCounts(mutualConserved, "MOVED_MUTUAL_CONSERVED", categories, line, results);
+void buildMovementResults(ifstream& data, vector<movements>& proteins){
+	string line = "";
+	string temp="";
+	movements result;
+	int pos;
+	while(!data.eof()){
+		getline(data, line);
+		if(line.find("!!")!= string::npos){
+			result.move = getMovementCategory(line);
+			while(line.find("**")==string::npos){
+				getline(data, line);
+				if (line.find("$$")!=string::npos){
+					buildResult(line, result);
+					proteins.push_back(result);
+				}
+			}
 		}
 	}
-	
-	//builds countData struct
-	countData.categories = categories;
-	countData.notMoved = notMoved;
-	countData.movedAbsolute = movedAbsolute;
-	countData.movedAdjacent = movedAdjacent;
-	countData.movedConserved = movedConserved;
-	countData.mutualConserved = mutualConserved;
-	
 }
 
 
-void getCategoryCounts(vector<int>& counts, string movement, vector<string> categories, string line, ifstream& file){
-	if(line.find(movement)!=string::npos){
-		while(line.find("**")==string::npos){ //** indicates end of a movement category
-			getline(file, line);
-			for (int x = 0; x < categories.size(); x++){
-				if (line.find(categories[x]) != string::npos){ //if the category is found in the line
-					counts[x]+=1;
+int getMovementCategory(string line){
+	if (line.find("NOT_MOVED")!=string::npos){
+		return 0;
+	}
+	if (line.find("MOVED_ABSOLUTE")!=string::npos){
+		return 1;
+	}
+	if (line.find("MOVED_ADJACENT")!=string::npos){
+		return 2;
+	}
+	if (line.find("MOVED_CONSERVED")!=string::npos){
+		return 3;
+	}
+	if (line.find("MOVED_MUTUAL_CONSERVED")!=string::npos){
+		return 4;
+	}
+}
+
+void buildResult(string line, movements& result){
+	int pos=0;
+	int endPos;
+	string temp = "";
+	line =  line.substr(line.find("\t")+1);
+	endPos = line.find("\t");
+	while(pos < endPos){
+		temp+=line[pos];
+		pos++;
+	}
+	result.subject = temp;
+	line = line.substr(line.find("\t")+1);
+	pos=0;
+	endPos = line.find("\t");
+	temp = "";
+	while(pos < endPos){
+		temp+=line[pos];
+		pos++;
+	}
+	result.query = temp;
+	line = line.substr(line.find("\t")+1);
+	result.keg = line;
+}
+
+void removeDuplicates(vector<movements>& proteins){
+	int count = 0;
+	int total=0;
+	for (int x=0; x < proteins.size(); x++){
+		total++;
+		for (int y=0; y < proteins.size(); y++){
+			if ((proteins[x].subject == proteins[y].subject || proteins[x].subject == proteins[y].query || 
+				proteins[x].query == proteins[y].subject || proteins[x].query == proteins[y].subject)&& (x != y)
+				&&(proteins[x].subject.length() > 0) && (proteins[x].query.length() > 0)){
+					cout << "REMOVING DUPLICATES..." <<endl;
+					if (proteins[y].move > proteins[x].move){
+						proteins[x].subject = "";
+						proteins[x].query = "";
+						proteins[x].move = -1;
+						proteins[x].keg = "";
+					}else{
+						proteins[y].subject = "";
+						proteins[y].query = "";
+						proteins[y].move = -1;
+						proteins[y].keg = "";
+					}
+					count++;
+					cout << count << " removed" <<endl;
+				}
+		}
+	}
+	cout << "out of " << total << " total Protein pairs" <<endl;
+}
+
+
+void buildTable(vector<string> categories, vector<movements> results, data& countData){
+	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
+	//adds zeros to all vector positions so specific indexes can be increased during the count
+	countData.categories = categories;
+	
+	for(int i = 0; i < categories.size(); i++){
+			countData.notMoved.push_back(0);
+			countData.movedAbsolute.push_back(0);
+			countData.movedAdjacent.push_back(0);
+			countData.movedConserved.push_back(0);
+			countData.mutualConserved.push_back(0);
+	}
+	for(int x = 0; x < results.size(); x++){
+		for(int y = 0; y < categories.size(); y++){
+			if (results[x].keg.find(categories[y])!=string::npos){
+				switch (results[x].move){
+					case-1 : break;
+					case 0 : countData.notMoved[y]++;
+							 break;
+					case 1 : countData.movedAbsolute[y]++;
+							 break;
+					case 2 : countData.movedAdjacent[y]++;
+							 break;
+					case 3 : countData.movedConserved[y]++;
+							 break;
+					case 4 : countData.mutualConserved[y]++;
+							 break;
+				
 				}
 			}
 		}
