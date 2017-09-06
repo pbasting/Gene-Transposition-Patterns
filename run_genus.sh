@@ -69,4 +69,6 @@ mv blast_results/${g}_* blast_results/${genus}
 echo "Formatting genus KEGG results..."
 ./FormatKegResults $keg1 synteny_results/${genus}/${genus}_movedProteins.txt synteny_results/${genus}/${genus}_formatted_movedProteins.csv
 
+Rscript getPoissonValues.r synteny_results/${genus}/${genus}_formatted_movedProteins.csv synteny_results/${genus}/${genus}_poisson.csv synteny_results/${genus}/${genus}_Summary_Table.csv
+
 
