@@ -5,7 +5,7 @@
 #Written by: Preston Basting
 #Email:pjb68507@uga.edu
 #Lab: Jan Mrazek
-#Last Changed: 9/1/2017
+#Last Changed: 9/7/2017
 #Purpose: This is a script designed to run another script made to run a series of programs 
 #		  designed to classify protein 'movement' when comparing two organisms and determine 
 #		  if proteins belonging to different functional categories are more likely to 'move'
@@ -69,6 +69,8 @@ mv blast_results/${g}_* blast_results/${genus}
 echo "Formatting genus KEGG results..."
 ./FormatKegResults $keg1 synteny_results/${genus}/${genus}_movedProteins.txt synteny_results/${genus}/${genus}_formatted_movedProteins.csv
 
+#uses poisson distribution to determine probability of category counts occuring
+echo "Running Poisson approximations..."
 Rscript getPoissonValues.r synteny_results/${genus}/${genus}_formatted_movedProteins.csv synteny_results/${genus}/${genus}_poisson.csv synteny_results/${genus}/${genus}_Summary_Table.csv
 
 

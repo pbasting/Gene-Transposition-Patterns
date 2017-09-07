@@ -5,7 +5,7 @@
 #Written by: Preston Basting
 #Email:pjb68507@uga.edu
 #Lab: Jan Mrazek
-#Last Changed: 9/6/2017
+#Last Changed: 9/7/2017
 #Purpose: This is a component of a series of programs designed to classify protein
 #		 'movement' when comparing two organisms and determine if proteins belonging
 #		 to different functional categories are more likely to 'move'
@@ -59,12 +59,10 @@ valuesExpected <- data.frame(kegCategories, UN.exp, ABS.exp, ADJ.exp, CONS.exp, 
 #uses poisson distribution to calculate the likelihood that the given number would occur
 #uses the lower tail if the actual count is lower than the average
 #uses the upper tail if the acutal count is higher than the average
+
 poisson <- function(actual, avg){
-  if(actual > avg){
-    pval = ppois(actual, lambda=avg, lower=FALSE)
-  }else{
-    pval = ppois(actual, lambda=avg, lower=TRUE)
-  }
+  dif = abs(actual - avg)
+  pval = (ppois(avg+dif, lambda=avg, lower=FALSE))+(ppois(avg-dif,lambda=avg, lower=TRUE))
   return(pval)
 }
 
@@ -93,48 +91,36 @@ poissonValues <- data.frame(kegCategories, kegData$UNMOVED,valuesExpected$UN.exp
 #this generates a table where significant changes are assigned '+' or '-' depending
 #on if the actual count is less or more than expected
 #values with p values < 0.001 are assigned '++' or '--'
+determineEnrichment <- function(poisson, actual, expected, column){
+  if(poisson < 0.05){
+    if(poisson < 0.001){
+      if (actual > expected){
+        column <-c(column, "++")
+      }else{
+        column <-c(column, "--")
+      }
+    }else{
+      if(actual > expected){
+        column <-c(column, "+")
+      }else{
+        column <-c(column, "-")
+      }
+    }
+  }else{
+  	column <- c(column, " ")
+  }
+  return(column)
+}
+
+unconserved <- c()
 conservedIn1 <- c()
 conservedIn2 <- c()
 for(i in 1:nrow(poissonValues)){
-  if(poissonValues$CONS.pois[i] < 0.05){
-    if(poissonValues$CONS.pois[i] < 0.001){
-      if(poissonValues$kegData.MOVED.CONS[i] > poissonValues$valuesExpected.CONS.exp[i]){
-        conservedIn1 <-c(conservedIn1, "++")
-      }else{
-        conservedIn1 <-c(conservedIn1, "--")
-      }
-    }else{
-      if(poissonValues$kegData.MOVED.CONS[i] > poissonValues$valuesExpected.CONS.exp[i]){
-        conservedIn1 <-c(conservedIn1, "+")
-      }else{
-        conservedIn1 <-c(conservedIn1, "-")
-      }
-    }
-    
-  }else{
-    conservedIn1 <-c(conservedIn1, " ")
-  }
-  
-  if(poissonValues$MUT.pois[i] < 0.05){
-    if(poissonValues$MUT.pois[i] < 0.001){
-      if(poissonValues$kegData.MUTUAL.CONS[i] > poissonValues$valuesExpected.MUT.exp[i]){
-        conservedIn2 <-c(conservedIn2, "++")
-      }else{
-        conservedIn2 <-c(conservedIn2, "--")
-      }
-    }else{
-      if(poissonValues$kegData.MUTUAL.CONS[i] > poissonValues$valuesExpected.MUT.exp[i]){
-        conservedIn2 <-c(conservedIn2, "+")
-      }else{
-        conservedIn2 <-c(conservedIn2, "-")
-      }
-    }
-  }else{
-    conservedIn2 <-c(conservedIn2, " ")
-  }
-  
+  unconserved <- determineEnrichment(poissonValues$ADJ.pois[i], poissonValues$kegData.MOVED.ADJ[i], poissonValues$valuesExpected.ADJ.exp[i], unconserved)
+  conservedIn1 <- determineEnrichment(poissonValues$CONS.pois[i], poissonValues$kegData.MOVED.CONS[i], poissonValues$valuesExpected.CONS.exp[i], conservedIn1)
+  conservedIn2 <- determineEnrichment(poissonValues$MUT.pois[i], poissonValues$kegData.MUTUAL.CONS[i], poissonValues$valuesExpected.MUT.exp[i], conservedIn2)
 }
-resultsFigure <- data.frame(poissonValues$kegCategories, conservedIn1, conservedIn2)
+resultsFigure <- data.frame(poissonValues$kegCategories, unconserved, conservedIn1, conservedIn2)
 
 
 

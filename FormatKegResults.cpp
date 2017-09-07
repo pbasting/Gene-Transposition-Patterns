@@ -3,7 +3,7 @@ FormatKegResults
 Written by: Preston Basting
 Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 9/1/2017
+Last Changed: 9/7/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -191,35 +191,45 @@ void buildResult(string line, movements& result){
 	result.keg = line;
 }
 
+
 void removeDuplicates(vector<movements>& proteins){
 	int count = 0;
-	int total=0;
-	for (int x=0; x < proteins.size(); x++){
+	int total = 0;
+	int y;
+	for(int x=0; x < proteins.size(); x++){
 		total++;
-		for (int y=0; y < proteins.size(); y++){
-			if ((proteins[x].subject == proteins[y].subject || proteins[x].subject == proteins[y].query || 
+		if(proteins[x].subject.length() > 0){
+			y = x+1;
+			while(y < proteins.size()){
+				if ((proteins[x].subject == proteins[y].subject || proteins[x].subject == proteins[y].query || 
 				proteins[x].query == proteins[y].subject || proteins[x].query == proteins[y].subject)&& (x != y)
 				&&(proteins[x].subject.length() > 0) && (proteins[x].query.length() > 0)){
 					cout << "REMOVING DUPLICATES..." <<endl;
 					if (proteins[y].move > proteins[x].move){
-						proteins[x].subject = "";
-						proteins[x].query = "";
-						proteins[x].move = -1;
-						proteins[x].keg = "";
+							proteins[x].subject = "";
+							proteins[x].query = "";
+							proteins[x].move = -1;
+							proteins[x].keg = "";
+							count++;
+							cout << count << " removed" <<endl;
+							break;
 					}else{
-						proteins[y].subject = "";
-						proteins[y].query = "";
-						proteins[y].move = -1;
-						proteins[y].keg = "";
+							proteins[y].subject = "";
+							proteins[y].query = "";
+							proteins[y].move = -1;
+							proteins[y].keg = "";
+							count++;
+							cout << count << " removed" <<endl;
 					}
-					count++;
-					cout << count << " removed" <<endl;
 				}
+				y++;
+			}
+		
 		}
+	
 	}
 	cout << "out of " << total << " total Protein pairs" <<endl;
 }
-
 
 void buildTable(vector<string> categories, vector<movements> results, data& countData){
 	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
