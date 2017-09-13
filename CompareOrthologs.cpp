@@ -48,10 +48,6 @@ double getPercentIdentity(string line);
 //outputs all the protein matches and the movement classification information to a csv
 void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile);
 
-//compares the query protein position the the subject protein position to determine
-//if the protein has moved. Returns true if the protein moved
-bool checkForMovement(vector<int> matchPositions, int index);
-
 //checks upstream and downstream query proteins to see if they are conserved compared to the subject
 //returns true if the surrounding proteins are different
 bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySize);
@@ -63,7 +59,7 @@ bool isConserved(vector<int> matchPositions, int index, int maxQuerySize);
 //parses out the file name without the path
 string getFileName(string fileAndPath);
 
-const int PROTEIN_POS_CUTOFF = 200; //the difference from original protein position that can be considered a large move
+
 const int CHECK_RANGE = 5; //number of upstream and downstream proteins to check for differences
 const int RANGE_CUTOFF = 5; //divergence from the checked protein that can still be considered a nearby protein
 
@@ -234,7 +230,7 @@ double getPercentIdentity(string line){
 
 //writes important information to a file comma-delimited
 void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, vector<string> queryFasta, ofstream& outputFile){
-	outputFile << "S_Prot_Name, Q_Prot_Name,Subject.Protein,Query.Protein,Movement.Distance,Movement.Adjacent,Adjacent.Conserved"<<endl;
+	outputFile << "S_Prot_Name, Q_Prot_Name,Subject.Protein,Query.Protein,Movement.Adjacent,Adjacent.Conserved"<<endl;
 	for (int x = 0; x < matchPositions.size(); x++){
 
 		if (matchPositions[x] >= 0){
@@ -243,7 +239,6 @@ void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, 
 			outputFile << x << ",";
 			
 			outputFile << matchPositions[x] << ",";
-			outputFile << checkForMovement(matchPositions, x) << ",";
 			outputFile << checkAdjacentProteins(matchPositions,x, queryFasta.size()) << ",";
 			outputFile << isConserved(matchPositions,x, queryFasta.size());
 			outputFile << endl;
@@ -252,16 +247,6 @@ void outputAllResults( vector<int> matchPositions, vector<string> subjectFasta, 
 	}
 }
 
-///////////////////////////////////////////////////////////////////////////////////
-/////think about how to account for circular chromosome when the query and subject are different sizes
-///////////////////////////////////////////////////////////////////////////////////
-bool checkForMovement(vector<int> matchPositions, int index){
-	if (abs(index - matchPositions[index]) > PROTEIN_POS_CUTOFF){
-		return true; //protein moved
-	}else{
-		return false; //protein did not move
-	}
-}
 
 bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySize){
 	int minVal, maxVal;

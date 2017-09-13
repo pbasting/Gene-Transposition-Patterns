@@ -30,21 +30,6 @@ suppressMessages(library(latticeExtra))
 
 syntenyData <- read.csv(file=inputFile)
 
-#parses out the data that corresponds to the proteins that moved but are still near the same proteins
-get.Moved.With.Adjacent <- function(syntenyData){
-  subject <-c()
-  query <-c()
-  for(i in 1:nrow(syntenyData)){
-    x = 1
-    if (syntenyData[i, "Movement.Distance"] > 0){
-      subject <- c(subject, syntenyData[i, "Subject.Protein"])
-      query <- c(query, syntenyData[i, "Query.Protein"])
-    }
-  }
-  moved.df <- data.frame(subject, query)
-  return (moved.df)
-}
-movedWithAdjacent <- get.Moved.With.Adjacent(syntenyData)
 
 #parses out the data that corresponds to the proteins that moved and are no longer around the same proteins
 get.Moved.Without.Adjacent <- function(syntenyData){
@@ -52,11 +37,9 @@ get.Moved.Without.Adjacent <- function(syntenyData){
   query <-c()
   for(i in 1:nrow(syntenyData)){
     x = 1
-    if (syntenyData[i, "Movement.Distance"] > 0){
-      if (syntenyData[i, "Movement.Adjacent"] > 0){
-        subject <- c(subject, syntenyData[i, "Subject.Protein"])
-        query <- c(query, syntenyData[i, "Query.Protein"])
-      }
+    if (syntenyData[i, "Movement.Adjacent"] > 0){
+      subject <- c(subject, syntenyData[i, "Subject.Protein"])
+      query <- c(query, syntenyData[i, "Query.Protein"])
     }
   }
   moved.df <- data.frame(subject, query)
@@ -70,12 +53,10 @@ get.Moved.Without.Adjacent.Conserved <- function(syntenyData){
   query <-c()
   for(i in 1:nrow(syntenyData)){
     x = 1
-    if (syntenyData[i, "Movement.Distance"] > 0){
-      if (syntenyData[i, "Movement.Adjacent"] > 0){
-        if (syntenyData[i, "Adjacent.Conserved"] > 0){
-          subject <- c(subject, syntenyData[i, "Subject.Protein"])
-          query <- c(query, syntenyData[i, "Query.Protein"])
-        }
+    if (syntenyData[i, "Movement.Adjacent"] > 0){
+       if (syntenyData[i, "Adjacent.Conserved"] > 0){
+         subject <- c(subject, syntenyData[i, "Subject.Protein"])
+         query <- c(query, syntenyData[i, "Query.Protein"])
       }
     }
   }
@@ -88,32 +69,23 @@ conserved <- get.Moved.Without.Adjacent.Conserved(syntenyData)
 #plot containing proteins that didn't move
 completePlot <- xyplot(Subject.Protein ~ Query.Protein, data = syntenyData, col = "black", xlim=c(0,max(syntenyData$Query.Protein)),ylim=c(0,max(syntenyData$Subject.Protein)) ,  grid=TRUE)
 
-#plot containing proteins that moved with adjacent proteins
-if (length(movedWithAdjacent$subject) > 0){
-	withPlot <- xyplot(subject ~ query, data = movedWithAdjacent, col = "blue")
-}
-
 #plot containing proteins that moved without adjacent proteins
 if (length(movedWithoutAdjacent$subject) > 0){
-	withoutPlot <- xyplot(subject ~ query, data = movedWithoutAdjacent,col = "red")
+	withoutPlot <- xyplot(subject ~ query, data = movedWithoutAdjacent,col = "blue")
 }
 
 #plot containing proteins that moved into a conserved region
 if (length(conserved$subject) > 0){
-  conservedPlot <- xyplot(subject ~ query, data = conserved,col = "green")
+  conservedPlot <- xyplot(subject ~ query, data = conserved,col = "red")
 }
 
 
 #checks that the plots exist as some may have no proteins
 #Prevents failure due to missing plots
-if (exists("conservedPlot") && exists("withoutPlot") && exists("withPlot")){
-	combinedplots <-completePlot+withPlot+withoutPlot+conservedPlot
-}else if (exists("withoutPlot") && exists("withPlot")){
-	combinedplots <- completePlot+withPlot+withoutPlot
-}else if (exists ("withoutPlot")){
+if (exists("conservedPlot") && exists("withoutPlot")){
+	combinedplots <-completePlot+withoutPlot+conservedPlot
+}else if (exists("withoutPlot")){
 	combinedplots <- completePlot+withoutPlot
-}else if (exists ("withPlot")){
-	combinedplots <- completePlot+withPlot
 }else{
 	combinedplots <- completePlot
 }

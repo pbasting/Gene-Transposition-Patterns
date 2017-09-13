@@ -3,7 +3,7 @@ getKegResults
 Written by: Preston Basting
 Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 9/1/2017
+Last Changed: 9/7/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -39,7 +39,7 @@ struct geneInfo{ //stores parsed info from genbank
 struct syntenyResult{ //stores parsed info from synteny results
 	string sub_prot;
 	string query_prot;
-	int moved;
+	//int moved;
 	int moved_adjacent;
 	int moved_conserved;
 	int conserved_both;
@@ -48,7 +48,6 @@ struct syntenyResult{ //stores parsed info from synteny results
 struct sortedResults{ //stores synteny results sorted by movement category
 	vector<pair<string, string> > not_moved;
 	vector<pair<string, string> > moved;
-	vector<pair<string, string> > moved_adjacent;
 	vector<pair<string, string> > moved_conserved;
 	vector<pair<string, string> > conserved_both;
 };
@@ -132,8 +131,7 @@ int main(int argc, char *argv[]){
 	countFile <<endl<< "/////////////////////////////////////////////////"<<endl;
 	countFile << "TOTAL: " << forwardResults.size() <<endl;
 	countFile << "NOT MOVED: " << resultsSorted.not_moved.size() <<endl;
-	countFile << "MOVED ABSOLUTE: " << resultsSorted.moved.size() <<endl;
-	countFile<< "MOVED ADJACENT: " << resultsSorted.moved_adjacent.size() <<endl;
+	countFile << "MOVED: " << resultsSorted.moved.size() <<endl;
 	countFile << "MOVED CONSERVED: " << resultsSorted.moved_conserved.size() <<endl;
 	countFile << "MOVED MUTUAL CONSERVED: " << resultsSorted.conserved_both.size() <<endl;
 	
@@ -165,16 +163,20 @@ void parseGenBank(ifstream& genBankFile, vector<geneInfo>& parsedInfo){
 				getline(genBankFile, line);
 				if(line.find("/locus_tag=") != string::npos){ //finds locus tag
 					gene.locusTag = parseValue(line);
+
 				}
 				if(line.find("/old_locus_tag=") != string::npos){ //finds locus tag
 					gene.oldLocusTag = parseValue(line);
+
 				}
 				if(line.find("/product=") != string::npos){
 					gene.product = ("/product="+parseValue(line));
+
 				}
 				if(line.find("/protein_id=") != string::npos){ //find protein ID
 					gene.proteinID = parseValue(line);
 					gene.proteinID = gene.proteinID.substr(0, gene.proteinID.rfind(".")); //removes version number
+
 				}
 			}while((line.find("    gene    ")==string::npos) && (!genBankFile.eof()));
 			parsedInfo.push_back(gene); //adds struct to vector
@@ -219,7 +221,8 @@ void parseKegFile(ifstream& kegFile, vector<kegInfo>& parsedKeg){
 				}
 			}
 			if (!match){//prevents duplicates from being added
-				keg.genes.push_back(temp); 
+				keg.genes.push_back(temp);
+
 			}
 		}
 	}	
@@ -264,6 +267,7 @@ void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsed
 			}
 			temp = temp.substr(0,temp.rfind(","));
 			result.sub_prot = upperCase(temp);
+
 			
 			//gets query protein ID///
 			temp = "";
@@ -280,8 +284,6 @@ void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsed
 			line = line.substr(line.find(",")+1); //moves past query protein
 			line = line.substr(line.find(",")+1); // moves past subject protein pos
 			line = line.substr(line.find(",")+1); // moves past query protein pos
-			result.moved = line[0]-48; //-48 to convert char to int
-			line = line.substr(line.find(",")+1); //moves past 'moved'
 			result.moved_adjacent = line[0]-48; //-48 to convert char to int
 			line = line.substr(line.find(",")+1); //moves past 'moved adjacent'
 			result.moved_conserved = line[0]-48; //-48 to convert char to int
@@ -295,7 +297,7 @@ void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsed
 //this does not filter out mismatches between movement into/from conserved regions
 void removeMismatches(vector<syntenyResult>& forward, vector<syntenyResult>& reverse){
 	int count = 0;
-	int matchCount;
+	int matchCount=0;
 	vector<syntenyResult> forwardTemp, reverseTemp;
 	
 	//remove proteins with no matches in the reverse condition//
@@ -325,12 +327,12 @@ void removeMismatches(vector<syntenyResult>& forward, vector<syntenyResult>& rev
 	forwardTemp.clear();
 	reverseTemp.clear();
 	
-	//removes mismatches and and pairs with divergence in movement classification
+	//removes mismatches and pairs with divergence in movement classification
 	
 	for(int i = 0; i < forward.size(); i++){
 		for (int j =0; j < reverse.size(); j++){
 			if (forward[i].sub_prot == reverse[j].query_prot && forward[i].query_prot == reverse[j].sub_prot &&
-				forward[i].moved == reverse[j].moved && forward[i].moved_adjacent == reverse[j].moved_adjacent){
+				forward[i].moved_adjacent == reverse[j].moved_adjacent){
 				forwardTemp.push_back(forward[i]);
 				reverseTemp.push_back(reverse[j]);
 			}
@@ -351,8 +353,8 @@ void findMutualConserved(vector<syntenyResult>& forward, vector<syntenyResult>& 
 	for (int i =0; i < forward.size(); i++){
 		for (int j = 0; j < reverse.size(); j++){
 			if (forward[i].sub_prot == reverse[j].query_prot){
-				if (forward[i].moved ==1 && forward[i].moved_adjacent ==1 &&forward[i].moved_conserved ==1 &&
-				    reverse[j].moved ==1 && reverse[j].moved_adjacent ==1 &&reverse[j].moved_conserved ==1){
+				if (forward[i].moved_adjacent ==1 &&forward[i].moved_conserved ==1 &&
+				    reverse[j].moved_adjacent ==1 &&reverse[j].moved_conserved ==1){
 					
 					forward[i].conserved_both = 1;
 					reverse[j].conserved_both = 1;
@@ -368,51 +370,33 @@ void findMutualConserved(vector<syntenyResult>& forward, vector<syntenyResult>& 
 void sortResults(vector<syntenyResult> forward, vector<syntenyResult> reverse, sortedResults& results){
 	pair<string, string> temp;
 	for (int i = 0; i < forward.size(); i++){
-		if (forward[i].moved == 0){ //didnt move
+		if (forward[i].moved_adjacent == 0){ //didnt move
 			temp.first = forward[i].sub_prot;
 			temp.second = forward[i].query_prot;
 			results.not_moved.push_back(temp);
 		}
-		if (forward[i].moved ==1 && forward[i].moved_adjacent == 0){ //moved based on overall position but not adjacent proteins
+		if (forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 0){ //moved based on adjacent proteins
 			temp.first = forward[i].sub_prot;
 			temp.second = forward[i].query_prot;
 			results.moved.push_back(temp);
 		}
-		if (forward[i].moved ==1 && forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 1 && forward[i].conserved_both == 0){ //moved based upon adjacent proteins into a conserved region
+		if (forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 1 && forward[i].conserved_both == 0){ //moved based upon adjacent proteins into a conserved region
 			temp.first = forward[i].sub_prot;
 			temp.second = forward[i].query_prot;
 			results.moved_conserved.push_back(temp);
 		}
 		//moved based upon adjacent proteins from a conserved region into a conserved region
-		if (forward[i].moved ==1 && forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 1 && forward[i].conserved_both == 1){ 
+		if (forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 1 && forward[i].conserved_both == 1){ 
 			temp.first = forward[i].sub_prot;
 			temp.second = forward[i].query_prot;
 			results.conserved_both.push_back(temp);
 		}
 		
 		//gets the pairs that moved into a conserved region from the reverse perspective
-		if (reverse[i].moved ==1 && reverse[i].moved_adjacent == 1 && reverse[i].moved_conserved == 1 && reverse[i].conserved_both == 0){
+		if (reverse[i].moved_adjacent == 1 && reverse[i].moved_conserved == 1 && reverse[i].conserved_both == 0){
 			temp.first = reverse[i].query_prot;
 			temp.second = reverse[i].sub_prot;
 			results.moved_conserved.push_back(temp);
-		}
-		
-		//gets pairs that have moved based upon adjacent proteins but haven't entered or left a conserved zone
-	}
-	bool match = false;
-	for (int i = 0; i < forward.size(); i++){
-		if (forward[i].moved ==1 && forward[i].moved_adjacent == 1 && forward[i].moved_conserved == 0){
-			match = false;
-			for(int x = 0; x < results.moved_conserved.size(); x++){
-				if (results.moved_conserved[x].first == forward[i].sub_prot){
-					match = true;
-				}
-			}
-			if (!match){
-				temp.first = forward[i].sub_prot;
-				temp.second = forward[i].query_prot;
-				results.moved_adjacent.push_back(temp);
-			}
 		}
 	}
 }
@@ -422,11 +406,8 @@ void categorizeResults(sortedResults results, vector<geneInfo> parsedGenBank, ve
 	outputFile << "!!NOT_MOVED!!"<<endl;
 	getCategoryCounts(results.not_moved, parsedGenBank, parsedKeg, outputFile);
 	outputFile << "**" <<endl;
-	outputFile << "!!MOVED_ABSOLUTE!!"<<endl;
-	getCategoryCounts(results.moved, parsedGenBank, parsedKeg, outputFile);
-	outputFile << "**" <<endl;
 	outputFile << "!!MOVED_ADJACENT!!"<<endl;
-	getCategoryCounts(results.moved_adjacent, parsedGenBank, parsedKeg, outputFile);
+	getCategoryCounts(results.moved, parsedGenBank, parsedKeg, outputFile);
 	outputFile << "**" <<endl;
 	outputFile << "!!MOVED_CONSERVED!!"<<endl;
 	getCategoryCounts(results.moved_conserved, parsedGenBank, parsedKeg, outputFile);

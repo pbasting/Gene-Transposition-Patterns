@@ -27,8 +27,8 @@ figureOutput = args[3]
 kegData <- read.csv(file=inputFile)
 
 #makes dataframe containing total matches for each movement category
-moveCategories <-c(colnames(kegData)[2], colnames(kegData)[3], colnames(kegData)[4], colnames(kegData)[5], colnames(kegData)[6])
-moveCatTotal <- c(sum(kegData$UNMOVED), sum(kegData$MOVED.ABS),sum(kegData$MOVED.ADJ), sum(kegData$MOVED.CONS),sum(kegData$MUTUAL.CONS))
+moveCategories <-c(colnames(kegData)[2], colnames(kegData)[3], colnames(kegData)[4], colnames(kegData)[5])
+moveCatTotal <- c(sum(kegData$UNMOVED), sum(kegData$MOVED), sum(kegData$MOVED.CONS),sum(kegData$MUTUAL.CONS))
 moveTotal.df <- data.frame(moveCategories, moveCatTotal)
 
 #total protein matches
@@ -36,25 +36,23 @@ totalProteins <- sum(moveCatTotal)
 
 #makes dataframe containing the total matches for each keg category
 kegCategories = kegData$FUNCTION
-kegCatTotal <- rowSums(kegData[2:6])
+kegCatTotal <- rowSums(kegData[2:5])
 kegTotal.df <- data.frame(kegCategories, kegCatTotal)
 
 
 #calculates the expected average number of matches for each movement category and keg category
 #stores in dataframe 'valuesExpected'
 UN.exp <- c()
-ABS.exp <- c()
-ADJ.exp <- c()
+MOV.exp <- c()
 CONS.exp <- c()
 MUT.exp <- c()
 for(i in 1:nrow(kegData)){
   UN.exp <- c(UN.exp, (kegTotal.df$kegCatTotal[i]*(moveTotal.df$moveCatTotal[1])/totalProteins))
-  ABS.exp <- c(ABS.exp, (kegTotal.df$kegCatTotal[i]*(moveTotal.df$moveCatTotal[2])/totalProteins))
-  ADJ.exp <- c(ADJ.exp, (kegTotal.df$kegCatTotal[i]*(moveTotal.df$moveCatTotal[3])/totalProteins))
-  CONS.exp <- c(CONS.exp, (kegTotal.df$kegCatTotal[i]*(moveTotal.df$moveCatTotal[4])/totalProteins))
-  MUT.exp <- c(MUT.exp, (kegTotal.df$kegCatTotal[i]*moveTotal.df$moveCatTotal[5]/totalProteins))
+  MOV.exp <- c(MOV.exp, (kegTotal.df$kegCatTotal[i]*(moveTotal.df$moveCatTotal[2])/totalProteins))
+  CONS.exp <- c(CONS.exp, (kegTotal.df$kegCatTotal[i]*(moveTotal.df$moveCatTotal[3])/totalProteins))
+  MUT.exp <- c(MUT.exp, (kegTotal.df$kegCatTotal[i]*moveTotal.df$moveCatTotal[4]/totalProteins))
 }
-valuesExpected <- data.frame(kegCategories, UN.exp, ABS.exp, ADJ.exp, CONS.exp, MUT.exp)
+valuesExpected <- data.frame(kegCategories, UN.exp, MOV.exp, CONS.exp, MUT.exp)
 
 #uses poisson distribution to calculate the likelihood that the given number would occur
 #uses the lower tail if the actual count is lower than the average
@@ -68,21 +66,18 @@ poisson <- function(actual, avg){
 
 #calculates the p-values and stores them in a dataframe 'poissonValues'
 UN.pois <- c()
-ABS.pois <- c()
-ADJ.pois <- c()
+MOV.pois <- c()
 CONS.pois <- c()
 MUT.pois <- c()
 for(i in 1:nrow(valuesExpected)){
   UN.pois <- c(UN.pois,poisson(kegData$UNMOVED[i],valuesExpected$UN.exp[i]))
-  ABS.pois <- c(ABS.pois,poisson(kegData$MOVED.ABS[i],valuesExpected$ABS.exp[i]))
-  ADJ.pois <- c(ADJ.pois,poisson(kegData$MOVED.ADJ[i],valuesExpected$ADJ.exp[i]))
+  MOV.pois <- c(MOV.pois,poisson(kegData$MOVED[i],valuesExpected$MOV.exp[i]))
   CONS.pois <- c(CONS.pois,poisson(kegData$MOVED.CONS[i],valuesExpected$CONS.exp[i]))
   MUT.pois <- c(MUT.pois,poisson(kegData$MUTUAL.CONS[i],valuesExpected$MUT.exp[i]))
 }
 
 poissonValues <- data.frame(kegCategories, kegData$UNMOVED,valuesExpected$UN.exp,UN.pois,
-                            kegData$MOVED.ABS, valuesExpected$ABS.exp, ABS.pois,
-                            kegData$MOVED.ADJ, valuesExpected$ADJ.exp, ADJ.pois,
+                            kegData$MOVED, valuesExpected$MOV.exp, MOV.pois,
                             kegData$MOVED.CONS, valuesExpected$CONS.exp, CONS.pois,
                             kegData$MUTUAL.CONS, valuesExpected$MUT.exp, MUT.pois)
 
@@ -112,15 +107,17 @@ determineEnrichment <- function(poisson, actual, expected, column){
   return(column)
 }
 
+unmoved <- c()
 unconserved <- c()
 conservedIn1 <- c()
 conservedIn2 <- c()
 for(i in 1:nrow(poissonValues)){
-  unconserved <- determineEnrichment(poissonValues$ADJ.pois[i], poissonValues$kegData.MOVED.ADJ[i], poissonValues$valuesExpected.ADJ.exp[i], unconserved)
+  unmoved <- determineEnrichment(poissonValues$UN.pois[i], poissonValues$kegData.UNMOVED[i], poissonValues$valuesExpected.UN.exp[i], unmoved)
+  unconserved <- determineEnrichment(poissonValues$MOV.pois[i], poissonValues$kegData.MOVED[i], poissonValues$valuesExpected.MOV.exp[i], unconserved)
   conservedIn1 <- determineEnrichment(poissonValues$CONS.pois[i], poissonValues$kegData.MOVED.CONS[i], poissonValues$valuesExpected.CONS.exp[i], conservedIn1)
   conservedIn2 <- determineEnrichment(poissonValues$MUT.pois[i], poissonValues$kegData.MUTUAL.CONS[i], poissonValues$valuesExpected.MUT.exp[i], conservedIn2)
 }
-resultsFigure <- data.frame(poissonValues$kegCategories, unconserved, conservedIn1, conservedIn2)
+resultsFigure <- data.frame(poissonValues$kegCategories, unmoved, unconserved, conservedIn1, conservedIn2)
 
 
 

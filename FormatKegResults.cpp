@@ -29,7 +29,7 @@ using namespace std;
 
 struct data{ //stores count data for keg categories
 	vector<string> categories;
-	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
+	vector<int> notMoved, moved, movedConserved, mutualConserved;
 };
 
 struct movements{
@@ -153,17 +153,14 @@ int getMovementCategory(string line){
 	if (line.find("NOT_MOVED")!=string::npos){
 		return 0;
 	}
-	if (line.find("MOVED_ABSOLUTE")!=string::npos){
+	if (line.find("MOVED_ADJACENT")!=string::npos){
 		return 1;
 	}
-	if (line.find("MOVED_ADJACENT")!=string::npos){
+	if (line.find("MOVED_CONSERVED")!=string::npos){
 		return 2;
 	}
-	if (line.find("MOVED_CONSERVED")!=string::npos){
-		return 3;
-	}
 	if (line.find("MOVED_MUTUAL_CONSERVED")!=string::npos){
-		return 4;
+		return 3;
 	}
 }
 
@@ -232,14 +229,11 @@ void removeDuplicates(vector<movements>& proteins){
 }
 
 void buildTable(vector<string> categories, vector<movements> results, data& countData){
-	vector<int> notMoved, movedAbsolute, movedAdjacent, movedConserved, mutualConserved;
-	//adds zeros to all vector positions so specific indexes can be increased during the count
 	countData.categories = categories;
-	
+	//adds zeros to all vector positions so specific indexes can be increased during the count
 	for(int i = 0; i < categories.size(); i++){
 			countData.notMoved.push_back(0);
-			countData.movedAbsolute.push_back(0);
-			countData.movedAdjacent.push_back(0);
+			countData.moved.push_back(0);
 			countData.movedConserved.push_back(0);
 			countData.mutualConserved.push_back(0);
 	}
@@ -250,13 +244,11 @@ void buildTable(vector<string> categories, vector<movements> results, data& coun
 					case-1 : break;
 					case 0 : countData.notMoved[y]++;
 							 break;
-					case 1 : countData.movedAbsolute[y]++;
+					case 1 : countData.moved[y]++;
 							 break;
-					case 2 : countData.movedAdjacent[y]++;
+					case 2 : countData.movedConserved[y]++;
 							 break;
-					case 3 : countData.movedConserved[y]++;
-							 break;
-					case 4 : countData.mutualConserved[y]++;
+					case 3 : countData.mutualConserved[y]++;
 							 break;
 				
 				}
@@ -267,7 +259,7 @@ void buildTable(vector<string> categories, vector<movements> results, data& coun
 
 
 void outputTable(data countData, ofstream& outputFile){
-	outputFile << "FUNCTION,UNMOVED,MOVED.ABS,MOVED.ADJ,MOVED.CONS,MUTUAL.CONS"<<endl;
+	outputFile << "FUNCTION,UNMOVED,MOVED,MOVED.CONS,MUTUAL.CONS"<<endl;
 	for (int x = 0; x < countData.categories.size(); x++){
 		if(countData.categories[x] == upperCase("Folding, sorting and degradation")){ //the comma in this category messes up the comma delimiting
 			outputFile << upperCase("Folding sorting and degradation,"); //this is the same catagory title without the comma
@@ -275,8 +267,7 @@ void outputTable(data countData, ofstream& outputFile){
 			outputFile << countData.categories[x] << ",";
 		}
 		outputFile << countData.notMoved[x] << ",";
-		outputFile << countData.movedAbsolute[x] << ",";
-		outputFile << countData.movedAdjacent[x] << ",";
+		outputFile << countData.moved[x] << ",";
 		outputFile << countData.movedConserved[x] << ",";
 		outputFile << countData.mutualConserved[x] << endl;
 	}
