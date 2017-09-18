@@ -3,7 +3,7 @@ FormatKegResults
 Written by: Preston Basting
 Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 9/7/2017
+Last Changed: 9/18/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -43,18 +43,29 @@ struct movements{
 //takes a keg file and parses out the categories. Stores all the categories into a vector
 vector<string> parseKegFile(ifstream& kegFile);
 
-//takes a line from a keg file taht contains a category. Parses out the name of the category
+//takes a line from a keg file that contains a category. Parses out the name of the category
 string parseKegLine(string line);
 
 //converts a string to uppercase
 string upperCase(string line);
 
+
+//takes the concatenated genus results from 'getKegResults', parses and stores in a struct
 void buildMovementResults(ifstream& data, vector<movements>& proteins);
 
+
+//takes a parsed line from the concatenated genus results
+//returns an integer corresponding to the movement category
 int getMovementCategory(string line);
 
+//called by buildMovementResults
+//takes a line from the concatenated genus results
+//parses the line into a struct
 void buildResult(string line, movements& result);
 
+//takes the vector of structs containing all the parsed data for a genus
+//erases the values of any duplicates found
+//keeps the pair with the highest movement classification
 void removeDuplicates(vector<movements>& proteins);
 
 //takes the parsed results from 'getKegResults', counts how many proteins match to each category and splits
@@ -135,11 +146,11 @@ void buildMovementResults(ifstream& data, vector<movements>& proteins){
 	int pos;
 	while(!data.eof()){
 		getline(data, line);
-		if(line.find("!!")!= string::npos){
+		if(line.find("!!")!= string::npos){ //indicates movement category line
 			result.move = getMovementCategory(line);
-			while(line.find("**")==string::npos){
+			while(line.find("**")==string::npos){ //'**' indicates the end of the results
 				getline(data, line);
-				if (line.find("$$")!=string::npos){
+				if (line.find("$$")!=string::npos){ //'$$' indicates a line containing data
 					buildResult(line, result);
 					proteins.push_back(result);
 				}
@@ -168,14 +179,14 @@ void buildResult(string line, movements& result){
 	int pos=0;
 	int endPos;
 	string temp = "";
-	line =  line.substr(line.find("\t")+1);
+	line =  line.substr(line.find("\t")+1); //moves past first tab
 	endPos = line.find("\t");
 	while(pos < endPos){
 		temp+=line[pos];
 		pos++;
 	}
 	result.subject = temp;
-	line = line.substr(line.find("\t")+1);
+	line = line.substr(line.find("\t")+1);//moves past subject
 	pos=0;
 	endPos = line.find("\t");
 	temp = "";
@@ -184,7 +195,8 @@ void buildResult(string line, movements& result){
 		pos++;
 	}
 	result.query = temp;
-	line = line.substr(line.find("\t")+1);
+	line = line.substr(line.find("\t")+1); //moves past query
+	line = line.substr(0,line.find("/product=")); //doesnt include genbank product info
 	result.keg = line;
 }
 
@@ -193,22 +205,26 @@ void removeDuplicates(vector<movements>& proteins){
 	int count = 0;
 	int total = 0;
 	int y;
-	for(int x=0; x < proteins.size(); x++){
+	cout << "REMOVING DUPLICATES..." <<endl;
+	for(int x=0; x < proteins.size(); x++){ //loops through all proteins
 		total++;
-		if(proteins[x].subject.length() > 0){
+		if(proteins[x].subject.length() > 0){ //doesnt search for matches if already erased
 			y = x+1;
-			while(y < proteins.size()){
+			while(y < proteins.size()){ //loops through all downstream proteins //upstream ones have already been checked
+				//looks for a match
 				if ((proteins[x].subject == proteins[y].subject || proteins[x].subject == proteins[y].query || 
 				proteins[x].query == proteins[y].subject || proteins[x].query == proteins[y].subject)&& (x != y)
 				&&(proteins[x].subject.length() > 0) && (proteins[x].query.length() > 0)){
-					cout << "REMOVING DUPLICATES..." <<endl;
+					//erases the pair with the lower move category
 					if (proteins[y].move > proteins[x].move){
 							proteins[x].subject = "";
 							proteins[x].query = "";
 							proteins[x].move = -1;
 							proteins[x].keg = "";
 							count++;
-							cout << count << " removed" <<endl;
+							if (count%1000 == 0){
+								cout << count << " removed" <<endl;
+							}
 							break;
 					}else{
 							proteins[y].subject = "";
@@ -216,7 +232,9 @@ void removeDuplicates(vector<movements>& proteins){
 							proteins[y].move = -1;
 							proteins[y].keg = "";
 							count++;
-							cout << count << " removed" <<endl;
+							if (count%1000 == 0){
+								cout << count << " removed" <<endl;
+							}
 					}
 				}
 				y++;
@@ -225,7 +243,7 @@ void removeDuplicates(vector<movements>& proteins){
 		}
 	
 	}
-	cout << "out of " << total << " total Protein pairs" <<endl;
+	cout << count << "out of " << total << " total Protein pairs" <<endl;
 }
 
 void buildTable(vector<string> categories, vector<movements> results, data& countData){
@@ -239,6 +257,7 @@ void buildTable(vector<string> categories, vector<movements> results, data& coun
 	}
 	for(int x = 0; x < results.size(); x++){
 		for(int y = 0; y < categories.size(); y++){
+			//tallies matches at the indices that correspond with the category
 			if (results[x].keg.find(categories[y])!=string::npos){
 				switch (results[x].move){
 					case-1 : break;
