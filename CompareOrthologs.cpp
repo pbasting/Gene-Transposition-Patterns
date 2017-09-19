@@ -3,7 +3,7 @@ CompareOrthologs
 Written by: Preston Basting
 Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 9/1/2017
+Last Changed: 9/19/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -23,6 +23,8 @@ Arguments: (1)query.fasta, (2)subject.fasta, (3)forwardBlast, (4)reverseBlast, (
 #include <string>
 #include <stdlib.h>
 #include <utility>
+#include <cmath>
+#include <algorithm>
 
 using namespace std;
 
@@ -61,9 +63,9 @@ string getFileName(string fileAndPath);
 
 
 const int CHECK_RANGE = 5; //number of upstream and downstream proteins to check for differences
-const int RANGE_CUTOFF = 5; //divergence from the checked protein that can still be considered a nearby protein
+const int RANGE_CUTOFF = 5; //divergence from the checked protein that can still be considered a nearby protein // lower = more classified as moved
 
-const double NEARBY_PROTEIN_CUTOFF = 0.3; //cutoff for fraction of different nearby proteins for a protein that hasn't moved //lower = more conservative
+const double NEARBY_PROTEIN_CUTOFF = 0.3; //cutoff for fraction of different nearby proteins for a protein that hasn't moved //lower = less classified as moved
 const double PERCENT_IDENTITY_CUTOFF = 50.0; //lowest acceptable percent identity for matches
 const int NO_PROTEIN = -1; //indicates no protein match in vectors of match positions
 
@@ -86,7 +88,7 @@ int main(int argc, char *argv[]){
 	outputFile1.open(argv[5]);
 	outputFile2.open(argv[6]);
 	if(!queryFasta.is_open() || !subjectFasta.is_open() || !forwardBlast.is_open() || !reverseBlast.is_open() || !outputFile1.is_open() || !outputFile2.is_open()){
-		cout << "C++ERROR:failed to open one of the files" << endl;
+		cout << "!!!!!!!!!!!!!CompareOrthologs ERROR:failed to open one of the files!!!!!!!!!!!!!!!!!!!!!" << endl;
 		return 0;
 	}
 	
@@ -292,7 +294,7 @@ bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySi
 		}
 	}
 	
-	//checks values in subvector to see if they are adjacet to the same proteins in the subject sequence
+	//checks values in subvector to see if they are adjacent to the same proteins in the subject sequence
 	//count is the count of nearby proteins that are the same in both genomes nearby
 	if (minVal < maxVal){
 		for (int x =0; x < matchesToCheck.size(); x++){
@@ -316,6 +318,60 @@ bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySi
 	}
 }
 
+//this version uses absolute deviation from the median to determine if a region is conserved
+bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
+	double totalChecked = CHECK_RANGE*2;
+	double count = 0;
+	//gets upstream proteins//
+	int x=index-1;
+	vector<int> adjacentProteins;
+	while (adjacentProteins.size() < CHECK_RANGE){
+		if (x < 0){
+			x = matchPositions.size()-1;
+		}
+		if (matchPositions[x] > -1){
+			adjacentProteins.insert(adjacentProteins.begin(), matchPositions[x]);
+		}
+		x--;
+	}
+	//gets downstream proteins//
+	x = index+1;
+	
+	while(adjacentProteins.size() < totalChecked){
+		if (x >= matchPositions.size()){
+			x = 0;
+		}
+		if(matchPositions[x] > -1){
+			adjacentProteins.push_back(matchPositions[x]);
+		}
+		x++;
+	}
+	//calculates the median of the surrounding orthologs
+	double median;
+	sort(adjacentProteins.begin(),adjacentProteins.end());
+	if (adjacentProteins.size() % 2 == 0){
+		median = (adjacentProteins[adjacentProteins.size()/2 -1] + adjacentProteins[adjacentProteins.size()/2])/2;
+	}else{
+		median = adjacentProteins[adjacentProteins.size()/2];
+	}
+	 //calculates the absolute deviation for each, if less then RANGE_CUTOFF, then it is considered conserved
+	for(int i =0; i < adjacentProteins.size(); i ++){
+		if (abs(adjacentProteins[i] - median) <= RANGE_CUTOFF){
+			count+=1;
+		}
+	}
+	//if the rate of conserved proteins is greater than 1-NEARBY_PROTEIN_CUTOFF
+	//the whole region is considered to be conserved
+	if(count/totalChecked > 1.0-NEARBY_PROTEIN_CUTOFF){
+		return true;
+	}else{
+		return false;
+	}
+}
+
+
+/*
+//this function still works, I am trying out an alternative way of determining conservation
 bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 	double totalChecked = CHECK_RANGE*2;
 	double count = 0;
@@ -378,6 +434,7 @@ bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 	}
 	return false;
 }
+*/
 
 string getFileName(string fileAndPath){
 	string fileName = "";

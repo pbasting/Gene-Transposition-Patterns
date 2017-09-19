@@ -5,7 +5,7 @@
 #Written by: Preston Basting
 #Email:pjb68507@uga.edu
 #Lab: Jan Mrazek
-#Last Changed: 9/7/2017
+#Last Changed: 9/19/2017
 #Purpose: This is a component of a series of programs designed to classify protein
 #		 'movement' when comparing two organisms and determine if proteins belonging
 #		 to different functional categories are more likely to 'move'
@@ -76,11 +76,26 @@ for(i in 1:nrow(valuesExpected)){
   MUT.pois <- c(MUT.pois,poisson(kegData$MUTUAL.CONS[i],valuesExpected$MUT.exp[i]))
 }
 
+#This adjusts pvals to account for fasle discovery rate
+allpvals <- c(UN.pois, MOV.pois, CONS.pois, MUT.pois)
+padjBH <- p.adjust(allpvals, method = "BH")
+for(i in 1:length(UN.pois)){
+  UN.pois[i] <- padjBH[i]
+}
+for(i in 1:length(MOV.pois)){
+  MOV.pois[i] <- padjBH[i+length(UN.pois)]
+}
+for(i in 1:length(CONS.pois)){
+  CONS.pois[i] <- padjBH[i+length(UN.pois)+length(MOV.pois)]
+}
+for(i in length(MUT.pois)){
+  MUT.pois[i] <- padjBH[i+length(UN.pois)+length(MOV.pois)+length(CONS.pois)]
+}
+
 poissonValues <- data.frame(kegCategories, kegData$UNMOVED,valuesExpected$UN.exp,UN.pois,
                             kegData$MOVED, valuesExpected$MOV.exp, MOV.pois,
                             kegData$MOVED.CONS, valuesExpected$CONS.exp, CONS.pois,
                             kegData$MUTUAL.CONS, valuesExpected$MUT.exp, MUT.pois)
-
 
 
 #this generates a table where significant changes are assigned '+' or '-' depending
