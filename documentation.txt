@@ -1,0 +1,99 @@
+#######################################################################################################
+
+#Synteny and Function
+#Written by: Preston Basting
+#Email:pjb68507@uga.edu
+#Lab: Jan Mrazek
+#Purpose: This is a pipeline designed to determine orthologous genes that have moved when comparing
+		  related species translated sequence, ideally, proteins that have moved from a conserved
+		  region into another conserved region in the genome. These are then related to KEGG functional
+		  classifications to see if certain functional groups of proteins are more likely to move than
+		  others. 
+
+#######################################################################################################
+
+
+
+
+
+##################
+### HOW TO USE ###
+##################
+
+1. All scripts and C++ source code should be in the same directory
+2. A subdirectory must be made called 'fastas'
+3. Inside 'fastas' there should be a directory for each group you want to run together (e.g. a genus)
+	a. The directory should be named after the grouping (e.g. genus campylobacter directory named 'campylobacter')
+4. Inside the group directory there should be directories for each individual organisms
+	a. each organism directory must contain (1) protein .fasta (2) genbank(full) .gb (3) kegg ontology File .keg
+	b. the name of the organism directory must start with the first letter of the grouping directory and an underscore (c_)
+	
+## File Structure Example##
+
+Projectdir/
+	run_genus.sh
+	synteny.sh
+	runblast.sh
+	CompareOrthologs.cpp
+	makeSyntenyPlot.r
+	getKegResults.cpp
+	FormatKegResults.cpp
+	genPosionValues.r
+	fastas/
+		campylobacter/
+			c_jejuni/
+				c_jejuni.fasta
+				c_jejuni.gb
+				c_jejuni.keg
+			c_coli/
+				c_coli.fasta
+				c_coli.gb
+				c_coli.keg
+
+5. once the directories are ordered like the example above, you can run the 'run_genus.sh' with the name of the grouping directory as the only argument
+	a. example: ./run_genus.sh campylobacter
+		I. this will run all comparisons of organisms found within the campylobacter directory
+
+
+##########################
+### WHERE TO GET FILES ###
+##########################
+
+## KEGG, GENBANK AND FASTA ##
+
+www.genome.jp/kegg-bin/show_organism?category=Bacteria
+
+1. select organism that you wish to download sequence files for
+2. Open link next to 'Sequence' under 'Chromosome' for the genbank information in new tab
+	a. this link should take you to NCBI
+3. click 'send to:' at the top right of the page
+4. select 'Coding Sequences' then Format: 'FASTA Protein'
+	a. save with .fasta file extension
+5. Click 'Send to:' again and select 'Complete Record' 'File' Format:'GenBank(full)'
+	a. save with .gb file extension
+6. Return to the organism page on genome.jp
+7. click Brite hierarchy' at the top
+8. click 'KEGG orthology (KO)' at the top of the list
+9. Click 'download htext' at the top of the page
+	a. save with the .keg file extension
+	
+	
+############################
+### INTERPRETING RESULTS ###
+############################
+
+Final results will be found in the group directory under 'synteny_results'
+
+*_movedProteins.txt raw concatenated results for the entire group. Duplicates have not been removed
+
+*_formatted_movedProteins.csv is a table of total counts for each functional grouping by each movement classification
+
+*_poission.csv table of expected and actual counts for each category as well as p values for each datapoint
+
+*_Summary_Table.csv is an attempt to summarize the results from *_poission.csv.
+	It is a table of categories with + or - if the results were significant
+	+/- = pval < 0.05; ++/-- = pval < 0.001; 
+
+
+	
+ 

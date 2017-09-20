@@ -318,6 +318,7 @@ bool checkAdjacentProteins(vector<int> matchPositions, int index, int maxQuerySi
 	}
 }
 
+/*
 //this version uses absolute deviation from the median to determine if a region is conserved
 bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 	double totalChecked = CHECK_RANGE*2;
@@ -368,10 +369,10 @@ bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 		return false;
 	}
 }
+*/
 
 
-/*
-//this function still works, I am trying out an alternative way of determining conservation
+//there is an alternative method above for determining conserved regions
 bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 	double totalChecked = CHECK_RANGE*2;
 	double count = 0;
@@ -434,7 +435,7 @@ bool isConserved(vector<int> matchPositions, int index, int maxQuerySize){
 	}
 	return false;
 }
-*/
+
 
 string getFileName(string fileAndPath){
 	string fileName = "";
