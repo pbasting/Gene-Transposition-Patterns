@@ -5,7 +5,7 @@
 #Written by: Preston Basting
 #Email:pjb68507@uga.edu
 #Lab: Jan Mrazek
-#Last Changed: 9/7/2017
+#Last Changed: 9/22/2017
 #Purpose: This is a script designed to run another script made to run a series of programs 
 #		  designed to classify protein 'movement' when comparing two organisms and determine 
 #		  if proteins belonging to different functional categories are more likely to 'move'
@@ -13,7 +13,8 @@
 #		 This script is used to run 'synteny.sh' for each subdirectory of a given directory.
 #		 It also concatenates the 'getKegResults' output into a single file for the entire
 #		 directory. This is then parsed and formatted by 'FormatKegResults' to produce a
-#		 .csv file containing a table of keg category counts vs movement category.
+#		 .csv file containing a table of keg category counts vs movement category. These
+#		 combined results are used by getPoissonValues.r to determine statistical significance
 #
 #Arguments: (1)Name of directory/genus (no path, must be within 'fastas' directory)
 ###########################################################################################
@@ -32,11 +33,11 @@ g=${genus:0:1}
 for org1 in fastas/${genus}/${g}_*; do
 	fasta1=$org1/*.fasta
 	gb1=$org1/*.gb
-	keg1=$org1/*.keg
+	keg1=$org1/*.brkeg
 	for org2 in fastas/${genus}/${g}_*; do
 		fasta2=$org2/*.fasta
 		gb2=$org2/*.gb
-		keg2=$org2/*.keg
+		keg2=$org2/*.brkeg
 		file1Name=${org1%.*} #removes file extension
 		file1Name=${file1Name##*/} #removes path to file
 		file2Name=${org2%.*}

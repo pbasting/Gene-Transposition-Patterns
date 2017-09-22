@@ -3,7 +3,7 @@ FormatKegResults
 Written by: Preston Basting
 Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 9/18/2017
+Last Changed: 9/22/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -13,7 +13,7 @@ Purpose: This is a component of a series of programs designed to classify protei
 		 category generates a table where each row is a different kegg category and each column is a 
 		 different movement category. The values are the number or proteins that meat both classifications.
 		 
-Arguments: (1)any keg file, (2)concatenated genus results from 'getKegResults' (3) name of output .csv
+Arguments: (1)any .brkeg file, (2)concatenated genus results from 'getKegResults' (3) name of output .csv
 ****************************************************************************************************/
 
 #include <iostream>
@@ -105,34 +105,31 @@ int main(int argc, char *argv[]){
 	return 0;
 }
 
-
 vector<string> parseKegFile(ifstream& kegFile){
 	string line;
 	vector<string> categories;
 	while(!kegFile.eof()){
 		getline(kegFile, line);
-		//skips overview
-		//all category lines start with B and are wrapped in <b></b>
-		if(line.find("<b>Overview</b>")==string::npos && line[0] == 'B' && line.find("<b>") != string::npos){
-			line = parseKegLine(line);
-			categories.push_back(line);
+		//cout << line <<endl;
+		if(line[0] == 'C'){
+			categories.push_back(parseKegLine(line));
 		}
 	}
-	return categories;	
+	return categories;
 }
 
 string parseKegLine(string line){
-	int pos;
 	string parsedLine = "";
-	pos = line.find("<b>");
-	pos+=3; //skips past <b>
-	while(line[pos] != '<' && pos < line.length()){
-		parsedLine += line[pos];
+	int pos = line.find("<");
+	pos++;
+	while(line[pos] != '>'){
+		parsedLine+=line[pos];
 		pos++;
 	}
-	
 	return upperCase(parsedLine);
+
 }
+
 
 string upperCase(string line){
 	transform(line.begin(), line.end(), line.begin(), ::toupper);
@@ -243,7 +240,7 @@ void removeDuplicates(vector<movements>& proteins){
 		}
 	
 	}
-	cout << count << "out of " << total << " total Protein pairs" <<endl;
+	cout << count << " out of " << total << " total Protein pairs" <<endl;
 }
 
 void buildTable(vector<string> categories, vector<movements> results, data& countData){

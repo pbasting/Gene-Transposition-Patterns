@@ -39,6 +39,8 @@ Projectdir/
 	getKegResults.cpp
 	FormatKegResults.cpp
 	genPosionValues.r
+	ConstructBrKegg.py
+	BuildAllBrKegg.sh
 	fastas/
 		campylobacter/
 			c_jejuni/
@@ -50,7 +52,10 @@ Projectdir/
 				c_coli.gb
 				c_coli.keg
 
-5. once the directories are ordered like the example above, you can run the 'run_genus.sh' with the name of the grouping directory as the only argument
+5. once the directories are ordered like the example above, you can construct the .brkeg files using 'BuildAllBrKegg.sh'
+	a. this constructs a file that will be used by downstream programs to determine functional categories
+	b. it combines the information form a kegg orthology file (.keg) and a BRITE file into a .brkeg file
+6. run the 'run_genus.sh' with the name of the grouping directory as the only argument
 	a. example: ./run_genus.sh campylobacter
 		I. this will run all comparisons of organisms found within the campylobacter directory
 
@@ -93,6 +98,26 @@ Final results will be found in the group directory under 'synteny_results'
 *_Summary_Table.csv is an attempt to summarize the results from *_poission.csv.
 	It is a table of categories with + or - if the results were significant
 	+/- = pval < 0.05; ++/-- = pval < 0.001; 
+
+
+#####################################
+### MOVEMENT CATEGORY DEFINITIONS ###
+#####################################
+	
+UNMOVED/MOVED
+	RANGE_CUTOFF = 5 positions
+	CHECK_RANGE = 5 upstream/downstream orthologous gene positions
+	NEARBY_PROTEIN_CUTOFF = 0.3
+	
+	counts nearby (RANGE_CUTOFF in both directions) orthologous genes that are conserved (close to the same position as the query gene)
+	if the rate of nearby conserved genes is less than the NEARBY_PROTEIN_CUTOFF then the gene is classified as moved
+	else the  gene is unmoved
+	increasing NEARBY_PROTEIN_CUTOFF increases the number of genes classified as moved
+	
+UNCONSERVED/CONSERVED
+	
+	take nearby (RANGE_CUTOFF in both directions) orthologous genes and compares them to all regions in the opposite genome. Each match is counted. 
+	If the rate of nearby conserved genes is greater than 1-(NEARBY_PROTEIN_CUTOFF) then the region is considered to be conserved
 
 
 	

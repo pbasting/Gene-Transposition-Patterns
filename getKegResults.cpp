@@ -3,7 +3,7 @@ getKegResults
 Written by: Preston Basting
 Email:pjb68507@uga.edu
 Lab: Jan Mrazek
-Last Changed: 9/7/2017
+Last Changed: 9/22/2017
 Purpose: This is a component of a series of programs designed to classify protein
 		 'movement' when comparing two organisms and determine if proteins belonging
 		 to different functional categories are more likely to 'move'
@@ -14,7 +14,7 @@ Purpose: This is a component of a series of programs designed to classify protei
 		 The results are output to a text file for future concatenation with results from other organisms
 		 within the same genus.
 		 
-Arguments: (1)subject genbank file, (2)subject keg file, (3)forward 'CompareOrthologs' results
+Arguments: (1)subject genbank file, (2)subject .brkeg file, (3)forward 'CompareOrthologs' results
 		   (4)reverse 'CompareOrthologs' results, (5) name of output file
 ****************************************************************************************************/
 
@@ -92,10 +92,13 @@ string upperCase(string line);
 string removePosition(string proteinID);
 
 int main(int argc, char *argv[]){
+
 	if (argc != 6){
 		cout << "missing/too many arguments!"<< endl;
 		return 0;
 	}
+	
+	
 	
 	ifstream genBankFile, kegFile ,forwardSyntenyFile, reverseSyntenyFile, kegLabelFile;
 	ofstream countFile;
@@ -113,6 +116,8 @@ int main(int argc, char *argv[]){
 	//parses input files into structs
 	parseGenBank(genBankFile, genBankParsed);
 	parseKegFile(kegFile, kegParsed);
+	
+	
 	parseSyntenyResults(forwardSyntenyFile, forwardResults);
 	parseSyntenyResults(reverseSyntenyFile, reverseResults);
 	
@@ -137,13 +142,7 @@ int main(int argc, char *argv[]){
 	
 	//outputs protein IDs and keg categories to a file
 	categorizeResults(resultsSorted, genBankParsed, kegParsed, countFile);
-/*
-	cout << "UNMOVED: " << resultsSorted.not_moved.size() <<endl;
-	cout << "MOVED: " << resultsSorted.moved.size() <<endl;
-	cout << "MOVED ALONE: " << resultsSorted.moved_adjacent.size() <<endl;
-	cout << "MOVED INTO CONSERVED REGION: " << resultsSorted.moved_conserved.size() <<endl;
-	cout << "MOVED INTO/FROM CONSERVED REGION: " << resultsSorted.conserved_both.size() <<endl;
-*/
+	
 	return 0;
 }
 
@@ -197,57 +196,42 @@ string parseValue(string line){
 //finds categories and the genes within those categories
 //assigns them to values of a struct then adds the struct to a vector
 void parseKegFile(ifstream& kegFile, vector<kegInfo>& parsedKeg){
-	string line, temp;
+	string line;
+	string category ="";
 	kegInfo keg;
-	bool passedOverview = false;
-	bool match = false;
+	vector<string> genes;
 	while(!kegFile.eof()){
 		getline(kegFile, line);
-		if(line.find("<b>Overview</b>")==string::npos && line[0] == 'B' && line.find("<b>") != string::npos){
-			if(passedOverview){ //first category is overview which is skipped
+		//cout << line <<endl;
+		if(line[0] == 'C'){
+			if(keg.category.length() > 1){
 				parsedKeg.push_back(keg);
 				keg.category = "";
 				keg.genes.clear();
-			}
-			keg.category = parseKegLine(line);
-			passedOverview = true; //assigned to true after overview is skipped
-		}
-		if(line[0] == 'D'){
-			match = false;
-			temp = parseKegLine(line);
-			for(int i = 0; i < keg.genes.size(); i++){
-				if (keg.genes[i] == temp){
-					match = true;
-				}
-			}
-			if (!match){//prevents duplicates from being added
-				keg.genes.push_back(temp);
-
+			}else{
+				keg.category = parseKegLine(line);
+				//cout << parseKegLine(line) <<endl;
 			}
 		}
-	}	
+		if(line[0] == 'G'){
+			keg.genes.push_back(parseKegLine(line));
+			//cout << parseKegLine(line) <<endl;
+		}
+	}
 }
 
 string parseKegLine(string line){
-	int pos;
 	string parsedLine = "";
-	if(line.find("<b>") != string::npos){ //if the line provided is a category
-		pos = line.find("<b>");
-		pos+=3;
-		while(line[pos] != '<' && pos < line.length()){
-			parsedLine += line[pos];
-			pos++;
-		}
-	}else{ //if the line provided is a gene
-		pos = 7;
-		while (line[pos] != ' ' && pos < line.length()){
-			parsedLine += line[pos];
-			pos++;
-		}
+	int pos = line.find("<");
+	pos++;
+	while(line[pos] != '>'){
+		parsedLine+=line[pos];
+		pos++;
 	}
-	
 	return upperCase(parsedLine);
+
 }
+
 
 //parses the results from 'CompareOrthologs' and stores them into a struct
 void parseSyntenyResults(ifstream& syntenyResults, vector<syntenyResult>& parsedInfo){

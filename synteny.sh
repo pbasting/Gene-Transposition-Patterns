@@ -5,7 +5,7 @@
 #Written by: Preston Basting
 #Email:pjb68507@uga.edu
 #Lab: Jan Mrazek
-#Last Changed: 9/1/2017
+#Last Changed: 9/22/2017
 #Purpose: This is a script made to run a series of programs designed to classify protein
 #		 'movement' when comparing two organisms and determine if proteins belonging
 #		 to different functional categories are more likely to 'move'
@@ -18,7 +18,7 @@
 #	
 #
 #Arguments: (1)Subject .fasta (protein), (2)Query .fasta (protein), (3)subject genbank
-#			(4) subject .keg
+#			(4) subject .brkeg
 ###########################################################################################
 
 
